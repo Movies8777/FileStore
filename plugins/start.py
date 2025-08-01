@@ -69,11 +69,7 @@ async def start_command(client: Client, message: Message):
         }
     else:
         verify_status = await db.get_verify_status(id)
-        message_text = message.text
-        param_pattern = r'(\w+)=([^&]+)'  # Pattern to match key=value pairs
-        params = re.findall(param_pattern, message_text)
-
-        if params:
+        
         # If TOKEN is enabled, handle verification logic
         if SHORTLINK_URL or SHORTLINK_API:
             if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
