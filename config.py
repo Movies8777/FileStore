@@ -92,7 +92,7 @@ USER_REPLY_TEXT = "ʙᴀᴋᴋᴀ ! ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴍʏ ꜱᴇɴᴘ
 
 OWNER_TAG = os.environ.get("OWNER_TAG", "𝖫𝗈𝗌𝗍")
 UPI_ID = os.environ.get("UPI_ID", "deathworld@axl")
-QR_PIC = os.environ.get("QR_PIC", "https://telegra.ph/file/3e83c69804826b3cba066-16cffa90cd682570da.jpg")
+QR_PIC = os.environ.get("QR_PIC", "https://i.postimg.cc/c6WHD8WZ/IMG-20250802-165051-768.jpg")
 SCREENSHOT_URL = os.environ.get("SCREENSHOT_URL", f"t.me/DeathSupportBot")
 #--------------------------------------------
 #Time and its price
