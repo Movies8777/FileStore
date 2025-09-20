@@ -19,13 +19,11 @@ import string
 import string as rohit
 import time
 from datetime import datetime, timedelta
-from pytz import timezone
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode, ChatAction
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
-
 from bot import Bot
 from config import *
 from helper_func import *
@@ -75,11 +73,9 @@ async def start_command(client: Client, message: Message):
         verify_status = await db.get_verify_status(id)
 
         if SHORTLINK_URL or SHORTLINK_API:
-          # expire check
             if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
                 await db.update_verify_status(user_id, is_verified=False)
 
-             # If message contains verify_ token param
             if "verify_" in message.text:
                 _, token = message.text.split("_", 1)
                 if verify_status['verify_token'] != token:
@@ -88,53 +84,23 @@ async def start_command(client: Client, message: Message):
                 await db.update_verify_status(id, is_verified=True, verified_time=time.time())
                 current = await db.get_verify_count(id)
                 await db.set_verify_count(id, current + 1)
-               
-                # -----------------------------
-                # NEW: Send "Get File" button so user can get file without reopening start link
-                # We will pass the original start param (message.command[1]) to callback_data if present
-                # -----------------------------
-                file_param = ""
-                try:
-                    if message.command and len(message.command) > 1:
-                        file_param = message.command[1]
-                except Exception:
-                    file_param = ""
+                return await message.reply(
+                    f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}"
+                )
 
-                # Safety: callback_data has size limits; if file_param empty, user will be told to use start link again
-                if file_param:
-                    btn = InlineKeyboardMarkup(
-                        [[InlineKeyboardButton("📂 Get File", callback_data=f"getfile_{file_param}")]]
-                    )
-                    return await message.reply(
-                        f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}\n\n👉 अब नीचे दिए गए बटन से फाइल ले सकते हो।",
-                        reply_markup=btn
-                    )
-                else:
-                    # fallback: no param available, just send verified message
-                    return await message.reply(
-                        f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}"
-                    )
-
-                        # If not verified and not premium -> create token & shortlink
             if not verify_status['is_verified'] and not is_premium:
                 token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
                 await db.update_verify_status(id, verify_token=token, link="")
-                link = await get_shortlink(
-                    SHORTLINK_URL,
-                    SHORTLINK_API,
-                    f'https://telegram.dog/{client.username}?start=verify_{token}'
-                )
+                link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
                 btn = [
                     [InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ •", url=link)],
-                    [InlineKeyboardButton("• ᴛᴜᴛᴏʀɪᴀʟ •", url=TUT_VID)]
-                    # [InlineKeyboardButton("• ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", callback_data="premium")]
+                     [InlineKeyboardButton("• ᴛᴜᴛᴏʀɪᴀʟ •", url=TUT_VID)]
+                    #[InlineKeyboardButton("• ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", callback_data="premium")]
                 ]
                 return await message.reply(
-                    f"📌 ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴠᴇʀɪғɪᴇᴅ ᴛᴏᴅᴀʏ, ᴘʟᴇᴀsᴇ ᴄʟɪᴄᴋ ᴏɴ ᴠᴇʀɪғʏ & ɢᴇᴛ ᴜɴʟɪᴍɪᴛᴇᴅ ᴀᴄᴄᴇss ғᴏʀ ᴛɪʟʟ ɴᴇxᴛ ᴠᴇʀɪғɪᴄᴀᴛɪᴏɴ\n\n<b>Tᴏᴋᴇɴ Tɪᴍᴇᴏᴜᴛ: {get_exp_time(VERIFY_EXPIRE)}\n\n#ᴠᴇʀɪғɪᴄᴀᴛɪᴏɴ ✓</b>",
-                    reply_markup=InlineKeyboardMarkup(btn)
+                    f"📌 ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴠᴇʀɪғɪᴇᴅ ᴛᴏᴅᴀʏ, ᴘʟᴇᴀsᴇ ᴄʟɪᴄᴋ ᴏɴ ᴠᴇʀɪғʏ & ɢᴇᴛ ᴜɴʟɪᴍɪᴛᴇᴅ ᴀᴄᴄᴇss ғᴏʀ ᴛɪʟʟ ɴᴇxᴛ ᴠᴇʀɪғɪᴄᴀᴛɪᴏɴ\n\n<b>Tᴏᴋᴇɴ Tɪᴍᴇᴏᴜᴛ: {get_exp_time(VERIFY_EXPIRE)}\n\n#ᴠᴇʀɪғɪᴄᴀᴛɪᴏɴ ✓</b>",                    reply_markup=InlineKeyboardMarkup(btn)
                 )
 
-         # If not a verify flow, try to extract base64 argument (old behaviour)
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
