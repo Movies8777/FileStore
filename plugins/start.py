@@ -79,8 +79,7 @@ async def start_command(client: Client, message: Message):
             if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
                 await db.update_verify_status(user_id, is_verified=False)
 
-            if "verify_" in message.text:
-    _, token = message.text.split("_", 1)
+            if "verify_" in message.text:_, token = message.text.split("_", 1)
     if verify_status['verify_token'] != token:
         return await message.reply("⚠️ Invalid token. Please /start again.")
 
@@ -115,9 +114,9 @@ async def start_command(client: Client, message: Message):
         )
 
 
-
+            
             # If not verified and not premium -> create token & shortlink
-            if not verify_status['is_verified'] and not is_premium:
+        if not verify_status['is_verified'] and not is_premium:
                 token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
                 await db.update_verify_status(id, verify_token=token, link="")
                 link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
@@ -217,16 +216,14 @@ async def start_command(client: Client, message: Message):
                 )
             except Exception as e:
                 print(f"Error updating notification with 'Get File Again' button: {e}")
-    else:
-        reply_markup = InlineKeyboardMarkup(
+            else:
+                reply_markup = InlineKeyboardMarkup(
             [
-                    [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movie8777")],
-
-    [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
-
-    ]
+                [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movie8777")],
+                [
+                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
+                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
+                ]
             ]
         )
         await message.reply_photo(
@@ -239,8 +236,8 @@ async def start_command(client: Client, message: Message):
                 id=message.from_user.id
             ),
             reply_markup=reply_markup,
-            message_effect_id=5104841245755180586)  # 🔥
-
+            message_effect_id=5104841245755180586
+        )
         return
 
 
