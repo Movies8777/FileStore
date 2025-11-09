@@ -71,52 +71,53 @@ async def start_command(client: Client, message: Message):
 
     text = message.text
     if len(text) > 7:
-        # Token verification 
-        verify_status = await db.get_verify_status(id)
+    # Token verification 
+    verify_status = await db.get_verify_status(id)
 
-        if SHORTLINK_URL or SHORTLINK_API:
-            # expire check
-            if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
-                await db.update_verify_status(user_id, is_verified=False)
+    if SHORTLINK_URL or SHORTLINK_API:
+        # expire check
+        if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
+            await db.update_verify_status(user_id, is_verified=False)
 
-            if "verify_" in message.text:_, token = message.text.split("_", 1)
-    if verify_status['verify_token'] != token:
-        return await message.reply("⚠️ Invalid token. Please /start again.")
+        if "verify_" in message.text:
+            _, token = message.text.split("_", 1)
+            
+            if verify_status['verify_token'] != token:
+                return await message.reply("⚠️ Invalid token. Please /start again.")
 
-    # ✅ Update verification details
-    await db.update_verify_status(id, is_verified=True, verified_time=time.time())
-    current = await db.get_verify_count(id)
-    await db.set_verify_count(id, current + 1)
+            # ✅ Update verification details
+            await db.update_verify_status(id, is_verified=True, verified_time=time.time())
+            current = await db.get_verify_count(id)
+            await db.set_verify_count(id, current + 1)
 
-    # ✅ Show "Get Your Content" button right after verification
-    file_param = ""
-    try:
-        if message.command and len(message.command) > 1:
-            file_param = message.command[1]
-    except Exception:
-        file_param = ""
+            # ✅ Show "Get Your Content" button right after verification
+            file_param = ""
+            try:
+                if message.command and len(message.command) > 1:
+                    file_param = message.command[1]
+            except Exception:
+                file_param = ""
 
-    if file_param:
-        btn = InlineKeyboardMarkup(
-            [[InlineKeyboardButton("📂 Get Your Content",
-                                   url=f"https://t.me/{client.username}?start={file_param}")]]
-        )
-        return await message.reply(
-            f"✅ Token verified successfully!\n\n"
-            f"Your verification is valid for {get_exp_time(VERIFY_EXPIRE)}.\n\n"
-            f"Click the button below to get your content 👇",
-            reply_markup=btn,
-        )
-    else:
-        return await message.reply(
-            f"✅ Token verified successfully!\n\n"
-            f"Your verification is valid for {get_exp_time(VERIFY_EXPIRE)}."
-        )
+            if file_param:
+                btn = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("📂 Get Your Content", url=f"https://t.me/{client.username}?start={file_param}")]]
+                )
+                return await message.reply(
+                    f"✅ Token verified successfully!\n\nYour verification is valid for {get_exp_time(VERIFY_EXPIRE)}.\n\n"
+                    f"Click the button below to get your content 👇",
+                    reply_markup=btn
+                )
+            else:
+                return await message.reply(
+                    f"✅ Token verified successfully!\n\nYour verification is valid for {get_exp_time(VERIFY_EXPIRE)}."
+                )
+    
+    
 
 
             
             # If not verified and not premium -> create token & shortlink
-        if not verify_status['is_verified'] and not is_premium:
+            if not verify_status['is_verified'] and not is_premium:
                 token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
                 await db.update_verify_status(id, verify_token=token, link="")
                 link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
@@ -216,14 +217,16 @@ async def start_command(client: Client, message: Message):
                 )
             except Exception as e:
                 print(f"Error updating notification with 'Get File Again' button: {e}")
-            else:
-                reply_markup = InlineKeyboardMarkup(
+    else:
+        reply_markup = InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movie8777")],
-                [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
-                ]
+                    [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movie8777")],
+
+    [
+                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
+                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
+
+    ]
             ]
         )
         await message.reply_photo(
@@ -236,8 +239,8 @@ async def start_command(client: Client, message: Message):
                 id=message.from_user.id
             ),
             reply_markup=reply_markup,
-            message_effect_id=5104841245755180586
-        )
+            message_effect_id=5104841245755180586)  # 🔥
+
         return
 
 
