@@ -114,7 +114,7 @@ if len(text) > 7:
             f"✅ Token verified successfully!\n\nYour verification is valid for {get_exp_time(VERIFY_EXPIRE)}."
         )
 
-        @Bot.on_callback_query(filters.regex(r"getfile_(.+)"))
+@Bot.on_callback_query(filters.regex(r"getfile_(.+)"))
 async def get_file_callback(client, callback_query):
     param = callback_query.data.split("_", 1)[1]
     await callback_query.answer("📂 Fetching your file...", show_alert=False)
