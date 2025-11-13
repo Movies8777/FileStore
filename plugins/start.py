@@ -60,7 +60,7 @@ async def start_command(client: Client, message: Message):
     banned_users = await db.get_ban_users()
     if user_id in banned_users:
         return await message.reply_text(
-            "<b>⛔️ You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
+            "<b>You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
             "<i>Contact support if you think this is a mistake.</i>",
             reply_markup=InlineKeyboardMarkup(
                 [[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]]
@@ -72,53 +72,86 @@ async def start_command(client: Client, message: Message):
     text = message.text
 
     if len(text) > 7:
-        # Token verification
-        verify_status = await db.get_verify_status(id)
-        if SHORTLINK_URL or SHORTLINK_API:
-            if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
-                await db.update_verify_status(user_id, is_verified=False)
+        # Get current verify status
+        verify_status = await get_verify_status(id)
 
-        if "verify_" in message.text:
-            _, token = message.text.split("_", 1)
+        # Token expired check
+        if (SHORTLINK_URL or SHORTLINK_API):
+            if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
+                await update_verify_status(user_id, is_verified=False, verify_token="", original_start="")
+
+        # === HANDLE VERIFY TOKEN (User came back after shortlink) ===
+        if message.text.startswith("/start verify_"):
+            _, token = message.text.split("verify_", 1)
             if verify_status['verify_token'] != token:
-                return await message.reply("⚠️ 𝖨𝗇𝗏𝖺𝗅𝗂𝖽 𝗍𝗈𝗄𝖾𝗇. 𝖯𝗅𝖾𝖺𝗌𝖾 /start 𝖺𝗀𝖺𝗂𝗇.")
-            await db.update_verify_status(id, is_verified=True, verified_time=time.time())
+                return await message.reply("Invalid token. Please /start again.")
+
+            # Mark as verified
+            await update_verify_status(
+                user_id,
+                is_verified=True,
+                verified_time=time.time()
+            )
             current = await db.get_verify_count(id)
             await db.set_verify_count(id, current + 1)
 
-            # Add "Get File" button below verification message
+            # Get saved original file command
+            original_start = verify_status.get('original_start', '')
+            if not original_start:
+                return await message.reply("No file associated. Please try again with the original link.")
+
+            # "Get File" button with original file link
             btn = InlineKeyboardMarkup(
                 [
-                    [InlineKeyboardButton("📁 𝗚𝗘𝗧 𝗙𝗜𝗟𝗘 📥", url=f"https://t.me/{client.username}?start={message.command[1]}")]
+                    [InlineKeyboardButton("GET FILE", url=f"https://t.me/{client.username}?start={original_start}")]
                 ]
             )
             return await message.reply(
-                f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱!\n\nVᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}\n\n"
-                "👉 𝗡𝗼𝘄 𝗰𝗹𝗶𝗰𝗸 𝗯𝗲𝗹𝗼𝘄 𝘁𝗼 𝗴𝗲𝘁 𝘆𝗼𝘂𝗿 𝗳𝗶𝗹𝗲 👇",
+                f"Token verified!\nValid for {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "Click below to get your file",
                 reply_markup=btn
             )
 
+        # === USER NOT VERIFIED & NOT PREMIUM → SHOW SHORTLINK ===
         if not verify_status['is_verified'] and not is_premium:
-            token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
-            await db.update_verify_status(id, verify_token=token, link="")
-            link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
+            try:
+                original_cmd = text.split(" ", 1)[1]  # This is the base64 string
+            except IndexError:
+                return await message.reply("Invalid link format.")
+
+            # Generate random token
+            token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+
+            # Save token + original command
+            await update_verify_status(
+                user_id,
+                verify_token=token,
+                is_verified=False,
+                original_start=original_cmd  # SAVE ORIGINAL FILE LINK
+            )
+
+            # Create verify link
+            verify_link = f"https://t.me/{client.username}?start=verify_{token}"
+            shortlink = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verify_link)
+
             btn = [
-                [InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ •", url=link),
-                 InlineKeyboardButton("• ᴛᴜᴛᴏʀɪᴀʟ •", url=TUT_VID)],
-                [InlineKeyboardButton("• ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", callback_data="premium")]
+                [InlineKeyboardButton("OPEN LINK", url=shortlink),
+                 InlineKeyboardButton("TUTORIAL", url=TUT_VID)],
+                [InlineKeyboardButton("BUY PREMIUM", callback_data="premium")]
             ]
             return await message.reply(
-                f"𝗬𝗼𝘂𝗿 𝘁𝗼𝗸𝗲𝗻 𝗵𝗮𝘀 𝗲𝘅𝗽𝗶𝗿𝗲𝗱. 𝗣𝗹𝗲𝗮𝘀𝗲 𝗿𝗲𝗳𝗿𝗲𝘀𝗵 𝘆𝗼𝘂𝗿 𝘁𝗼𝗸𝗲𝗻 𝘁𝗼 𝗰𝗼𝗻𝘁𝗶𝗻𝘂𝗲..\n\n"
-                f"<b>Tᴏᴋᴇɴ Tɪᴍᴇᴏᴜᴛ:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
-                "<b>ᴡʜᴀᴛ ɪs ᴛʜᴇ ᴛᴏᴋᴇɴ??</b>\n\n"
-                f"ᴛʜɪs ɪs ᴀɴ ᴀᴅs ᴛᴏᴋᴇɴ. ᴘᴀssɪɴɢ ᴏɴᴇ ᴀᴅ ᴀʟʟᴏᴡs ʏᴏᴜ ᴛᴏ ᴜsᴇ ᴛʜᴇ ʙᴏᴛ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}</b>",
+                f"Your token has expired. Please refresh to continue..\n\n"
+                f"<b>Token Timeout:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "<b>What is token?</b>\n"
+                f"Pass one ad to use bot for {get_exp_time(VERIFY_EXPIRE)}",
                 reply_markup=InlineKeyboardMarkup(btn)
             )
 
+        # === USER IS VERIFIED OR PREMIUM → SEND FILE ===
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
-            return
+            return await message.reply("Invalid file link.")
 
         string = await decode(base64_string)
         argument = string.split("-")
@@ -129,22 +162,20 @@ async def start_command(client: Client, message: Message):
                 start = int(int(argument[1]) / abs(client.db_channel.id))
                 end = int(int(argument[2]) / abs(client.db_channel.id))
                 ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
-            except Exception as e:
-                print(f"Error decoding IDs: {e}")
-                return
+            except:
+                return await message.reply("Error decoding file range.")
         elif len(argument) == 2:
             try:
                 ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-            except Exception as e:
-                print(f"Error decoding ID: {e}")
-                return
+            except:
+                return await message.reply("Error decoding file ID.")
 
         temp_msg = await message.reply("<b>Please wait...</b>")
         try:
             messages = await get_messages(client, ids)
         except Exception as e:
-            await message.reply_text("Something went wrong!")
-            print(f"Error getting messages: {e}")
+            await message.reply_text("Something went wrong while fetching files!")
+            print(f"Error: {e}")
             return
         finally:
             await temp_msg.delete()
@@ -153,11 +184,11 @@ async def start_command(client: Client, message: Message):
         for msg in messages:
             caption = (CUSTOM_CAPTION.format(
                 previouscaption="" if not msg.caption else msg.caption.html,
-                filename=msg.document.file_name
-            ) if bool(CUSTOM_CAPTION) and bool(msg.document)
-               else ("" if not msg.caption else msg.caption.html))
+                filename=msg.document.file_name if msg.document else "Unknown"
+            ) if CUSTOM_CAPTION and msg.document else
+               ("" if not msg.caption else msg.caption.html))
 
-            reply_markup = msg.reply_markup if DISABLE_CHANNEL_BUTTON else None
+            reply_markup = msg.reply_markup if not DISABLE_CHANNEL_BUTTON else None
 
             try:
                 copied_msg = await msg.copy(
@@ -179,46 +210,43 @@ async def start_command(client: Client, message: Message):
                 )
                 codeflix_msgs.append(copied_msg)
             except Exception as e:
-                print(f"Failed to send message: {e}")
+                print(f"Failed to copy message: {e}")
                 pass
 
+        # Auto Delete Files
         if FILE_AUTO_DELETE > 0:
             notification_msg = await message.reply(
-                f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ {get_exp_time(FILE_AUTO_DELETE)}. "
-                "Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
+                f"<b>This file will be deleted in {get_exp_time(FILE_AUTO_DELETE)}. "
+                "Please save or forward it to your saved messages before it gets deleted.</b>"
             )
             await asyncio.sleep(FILE_AUTO_DELETE)
             for snt_msg in codeflix_msgs:
                 if snt_msg:
                     try:
                         await snt_msg.delete()
-                    except Exception as e:
-                        print(f"Error deleting message {snt_msg.id}: {e}")
-
+                    except:
+                        pass
             try:
-                reload_url = (
-                    f"https://t.me/{client.username}?start={message.command[1]}"
-                    if message.command and len(message.command) > 1
-                    else None
-                )
+                reload_url = f"https://t.me/{client.username}?start={text.split(' ', 1)[1]}"
                 keyboard = InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ!", url=reload_url)]]
-                ) if reload_url else None
-
+                    [[InlineKeyboardButton("GET FILE AGAIN!", url=reload_url)]]
+                )
                 await notification_msg.edit(
-                    "<b>ʏᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n\n"
-                    "ᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ᴅᴇʟᴇᴛᴇᴅ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ 👇</b>",
+                    "<b>Your video/file is successfully deleted!!\n\n"
+                    "Click below button to get your deleted video/file</b>",
                     reply_markup=keyboard
                 )
             except Exception as e:
-                print(f"Error updating notification with 'Get File Again' button: {e}")
+                print(f"Error updating notification: {e}")
+
     else:
+        # Normal /start message
         reply_markup = InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movies8777")],
+                [InlineKeyboardButton("CHANNELS", url="https://t.me/Movies8777")],
                 [
-                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data="about"),
-                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data="help")
+                    InlineKeyboardButton("ABOUT", callback_data="about"),
+                    InlineKeyboardButton('HELP', callback_data="help")
                 ]
             ]
         )
@@ -234,7 +262,6 @@ async def start_command(client: Client, message: Message):
             reply_markup=reply_markup,
             message_effect_id=5104841245755180586
         )
-        return
 
 
 #=====================================================================================##
