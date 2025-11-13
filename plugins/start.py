@@ -38,232 +38,172 @@ TUT_VID = f"{TUT_VID}"
 
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
-user_id = message.from_user.id
-id = message.from_user.id
-is_premium = await is_premium_user(id)
+    user_id = message.from_user.id
+    id = message.from_user.id
+    is_premium = await is_premium_user(id)
 
-if not await db.present_user(user_id):
-    try:
-        await db.add_user(user_id)
-    except:
-        pass
+    # Add user if not already present
+    if not await db.present_user(user_id):
+        try:
+            await db.add_user(user_id)
+        except:
+            pass
 
-if not await is_subscribed(client, user_id):
-    return await not_joined(client, message)
+    # ✅ Check Force Subscription
+    if not await is_subscribed(client, user_id):
+        return await not_joined(client, message)
 
-banned_users = await db.get_ban_users()
-if user_id in banned_users:
-    return await message.reply_text(
-        "<b>⛔️ You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
-        "<i>Contact support if you think this is a mistake.</i>",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]]
+    # Check if user is banned
+    banned_users = await db.get_ban_users()
+    if user_id in banned_users:
+        return await message.reply_text(
+            "<b>⛔️ You are Bᴀɴɴᴇᴅ from using this bot.</b>\n\n"
+            "<i>Contact support if you think this is a mistake.</i>",
+            reply_markup=InlineKeyboardMarkup(
+                [[InlineKeyboardButton("Contact Support", url=BAN_SUPPORT)]]
+            )
         )
-    )
 
-FILE_AUTO_DELETE = await db.get_del_timer()  # ✅ ye function ke andar hai
+    # File auto-delete time in seconds
+    FILE_AUTO_DELETE = await db.get_del_timer()  # Example: 3600 seconds (1 hour)
 
-# 👇 Ye line aur niche ka sab kuch indent hona chahiye
-text = message.text
-
-if len(text) > 7:
-    verify_status = await db.get_verify_status(id)
-    if SHORTLINK_URL or SHORTLINK_API:
-        # expire check
-        if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
-            await db.update_verify_status(user_id, is_verified=False)
-
-    if "verify_" in message.text:
-        _, token = message.text.split("_", 1)
+    text = message.text
+    if len(text) > 7:
+        # Token verification
         verify_status = await db.get_verify_status(id)
 
-        if verify_status['verify_token'] != token:
-            return await message.reply("⚠️ Invalid token. Please /start again.")
+        if SHORTLINK_URL or SHORTLINK_API:
+            if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
+                await db.update_verify_status(user_id, is_verified=False)
 
+        if "verify_" in message.text:
+            _, token = message.text.split("_", 1)
+            if verify_status['verify_token'] != token:
+                return await message.reply("⚠️ 𝖨𝗇𝗏𝖺𝗅𝗂𝖽 𝗍𝗈𝗄𝖾𝗇. 𝖯𝗅𝖾𝖺𝗌𝖾 /start 𝖺𝗀𝖺𝗂𝗇.")
 
-# ✅ Update verification details
-await db.update_verify_status(id, is_verified=True, verified_time=time.time())
-current = await db.get_verify_count(id)
-await db.set_verify_count(id, current + 1)
+            await db.update_verify_status(id, is_verified=True, verified_time=time.time())
+            current = await db.get_verify_count(id)
+            await db.set_verify_count(id, current + 1)
 
-# ✅ NEW: Direct "Get File" button without re-clicking start
-# ✅ Token verification + Get File button
-file_param = ""
-try:
-if message.command and len(message.command) > 1:
-    file_param = message.command[1]
-except Exception:
-file_param = ""
-
-if file_param:
-btn = InlineKeyboardMarkup(
-    [[InlineKeyboardButton("📂 Get Your Content", callback_data=f"getfile_{file_param}")]]
-)
-return await message.reply(
-    f"✅ Token verified successfully!\n\nYour verification is valid for {get_exp_time(VERIFY_EXPIRE)}.\n\n"
-    f"Click below to get your content 👇",
-    reply_markup=btn
-)
-else:
-return await message.reply(
-    f"✅ Token verified successfully!\n\nYour verification is valid for {get_exp_time(VERIFY_EXPIRE)}."
-)
-
-
-# ✅ Callback for "Get File" button
-@Bot.on_callback_query(filters.regex(r"getfile_(.+)"))
-async def get_file_callback(client, callback_query):
-    param = callback_query.data.split("_", 1)[1]
-    
-    # Notify user
-    await callback_query.answer("📂 Fetching your file...", show_alert=False)
-    
-    # Send the command to trigger file sending logic
-    await client.send_message(
-        chat_id=callback_query.from_user.id,
-        text=f"/start {param}"
-    )
-
-
-if not verify_status['is_verified'] and not is_premium:
-token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
-await db.update_verify_status(id, verify_token=token, link="")
-link = await get_shortlink(
-    SHORTLINK_URL,
-    SHORTLINK_API,
-    f'https://telegram.dog/{client.username}?start=verify_{token}'
-)
-
-btn = [
-    [
-        InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ •", url=link),
-        InlineKeyboardButton("• ᴛᴜᴛᴏʀɪᴀʟ •", url=TUT_VID)
-    ],
-    [
-        InlineKeyboardButton("• ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", callback_data="premium")
-    ]
-]
-
-return await message.reply(
-    f"𝗬𝗼𝘂𝗿 𝘁𝗼𝗸𝗲𝗻 𝗵𝗮𝘀 𝗲𝘅𝗽𝗶𝗿𝗲𝗱. 𝗣𝗹𝗲𝗮𝘀𝗲 𝗿𝗲𝗳𝗿𝗲𝘀𝗵 𝘆𝗼𝘂𝗿 𝘁𝗼𝗸𝗲𝗻 𝘁𝗼 𝗰𝗼𝗻𝘁𝗶𝗻𝘂𝗲..\n\n"
-    f"<b>Tᴏᴋᴇɴ Tɪᴍᴇᴏᴜᴛ:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
-    f"<b>ᴡʜᴀᴛ ɪs ᴛʜᴇ ᴛᴏᴋᴇɴ??</b>\n\n"
-    f"ᴛʜɪs ɪs ᴀɴ ᴀᴅs ᴛᴏᴋᴇɴ. ᴘᴀssɪɴɢ ᴏɴᴇ ᴀᴅ ᴀʟʟᴏᴡs ʏᴏᴜ ᴛᴏ ᴜsᴇ ᴛʜᴇ ʙᴏᴛ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}</b>",
-    reply_markup=InlineKeyboardMarkup(btn)
-)
-
-# If not a verify flow, try to extract base64 argument (old behaviour)
-try:
-    base64_string = text.split(" ", 1)[1]
-except IndexError:
-    return
-
-string = await decode(base64_string)
-argument = string.split("-")
-
-ids = []
-if len(argument) == 3:
-    try:
-        start = int(int(argument[1]) / abs(client.db_channel.id))
-        end = int(int(argument[2]) / abs(client.db_channel.id))
-        ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
-    except Exception as e:
-        print(f"Error decoding IDs: {e}")
-        return
-
-elif len(argument) == 2:
-    try:
-        ids = [int(int(argument[1]) / abs(client.db_channel.id))]
-    except Exception as e:
-        print(f"Error decoding ID: {e}")
-        return
-
-temp_msg = await message.reply("<b>Please wait...</b>")
-try:
-    messages = await get_messages(client, ids)
-except Exception as e:
-    await message.reply_text("Something went wrong!")
-    print(f"Error getting messages: {e}")
-    return
-finally:
-    await temp_msg.delete()
-
-codeflix_msgs = []
-for msg in messages:
-    caption = (CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html, 
-                                     filename=msg.document.file_name) if bool(CUSTOM_CAPTION) and bool(msg.document)
-               else ("" if not msg.caption else msg.caption.html))
-
-    reply_markup = msg.reply_markup if DISABLE_CHANNEL_BUTTON else None
-
-    try:
-        copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, 
-                                    reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
-        codeflix_msgs.append(copied_msg)
-    except FloodWait as e:
-        await asyncio.sleep(e.x)
-        copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, 
-                                    reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
-        codeflix_msgs.append(copied_msg)
-    except Exception as e:
-        print(f"Failed to send message: {e}")
-        pass
-
-if FILE_AUTO_DELETE > 0:
-    notification_msg = await message.reply(
-        f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ  {get_exp_time(FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
-    )
-
-    await asyncio.sleep(FILE_AUTO_DELETE)
-
-        for snt_msg in codeflix_msgs:    
-            if snt_msg:
-                try:    
-                    await snt_msg.delete()  
-                except Exception as e:
-                    print(f"Error deleting message {snt_msg.id}: {e}")
-
+            # 🆕 Add "Get File" button below verification message
+            btn = InlineKeyboardMarkup(
+                [
+                    [InlineKeyboardButton("📁 𝗚𝗘𝗧 𝗙𝗜𝗟𝗘 📥", url=f"https://t.me/{client.username}?start={token}")]
+                ]
+            )
+            return await message.reply(
+                f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱!\n\nVᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "👉 𝗡𝗼𝘄 𝗰𝗹𝗶𝗰𝗸 𝗯𝗲𝗹𝗼𝘄 𝘁𝗼 𝗴𝗲𝘁 𝘆𝗼𝘂𝗿 𝗳𝗶𝗹𝗲 👇",
+                reply_markup=btn
+            )
+            if not verify_status['is_verified'] and not is_premium:
+                token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
+                await db.update_verify_status(id, verify_token=token, link="")
+                link = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, f'https://telegram.dog/{client.username}?start=verify_{token}')
+                btn = [
+                    [InlineKeyboardButton("• ᴏᴘᴇɴ ʟɪɴᴋ •", url=link),
+                     InlineKeyboardButton("• ᴛᴜᴛᴏʀɪᴀʟ •", url=TUT_VID)],
+                    [InlineKeyboardButton("• ʙᴜʏ ᴘʀᴇᴍɪᴜᴍ •", callback_data="premium")]
+                ]
+                return await message.reply(
+                    f"𝗬𝗼𝘂𝗿 𝘁𝗼𝗸𝗲𝗻 𝗵𝗮𝘀 𝗲𝘅𝗽𝗶𝗿𝗲𝗱. 𝗣𝗹𝗲𝗮𝘀𝗲 𝗿𝗲𝗳𝗿𝗲𝘀𝗵 𝘆𝗼𝘂𝗿 𝘁𝗼𝗸𝗲𝗻 𝘁𝗼 𝗰𝗼𝗻𝘁𝗶𝗻𝘂𝗲..\n\n<b>Tᴏᴋᴇɴ Tɪᴍᴇᴏᴜᴛ:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n<b>ᴡʜᴀᴛ ɪs ᴛʜᴇ ᴛᴏᴋᴇɴ??</b>\n\nᴛʜɪs ɪs ᴀɴ ᴀᴅs ᴛᴏᴋᴇɴ. ᴘᴀssɪɴɢ ᴏɴᴇ ᴀᴅ ᴀʟʟᴏᴡs ʏᴏᴜ ᴛᴏ ᴜsᴇ ᴛʜᴇ ʙᴏᴛ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}</b>", reply_markup=InlineKeyboardMarkup(btn)
+                )
         try:
-            reload_url = (
-                f"https://t.me/{client.username}?start={message.command[1]}"
-                if message.command and len(message.command) > 1
-                else None
-            )
-            keyboard = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ!", url=reload_url)]]
-            ) if reload_url else None
-
-            await notification_msg.edit(
-                "<b>ʏᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n\nᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ᴅᴇʟᴇᴛᴇᴅ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ 👇</b>",
-                reply_markup=keyboard
-            )
+            base64_string = text.split(" ", 1)[1]
+        except IndexError:
+            return
+        string = await decode(base64_string)
+        argument = string.split("-")
+        ids = []
+        if len(argument) == 3:
+            try:
+                start = int(int(argument[1]) / abs(client.db_channel.id))
+                end = int(int(argument[2]) / abs(client.db_channel.id))
+                ids = range(start, end + 1) if start <= end else list(range(start, end - 1, -1))
+            except Exception as e:
+                print(f"Error decoding IDs: {e}")
+                return
+        elif len(argument) == 2:
+            try:
+                ids = [int(int(argument[1]) / abs(client.db_channel.id))]
+            except Exception as e:
+                print(f"Error decoding ID: {e}")
+                return
+        temp_msg = await message.reply("<b>Please wait...</b>")
+        try:
+            messages = await get_messages(client, ids)
         except Exception as e:
-            print(f"Error updating notification with 'Get File Again' button: {e}")
-else:
-    reply_markup = InlineKeyboardMarkup(
-        [
-                [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movie8777")],
-
-[
-                InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
-                InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
-
-]
-        ]
-    )
-    await message.reply_photo(
-        photo=START_PIC,
-        caption=START_MSG.format(
-            first=message.from_user.first_name,
-            last=message.from_user.last_name,
-            username=None if not message.from_user.username else '@' + message.from_user.username,
-            mention=message.from_user.mention,
-            id=message.from_user.id
-        ),
-        reply_markup=reply_markup,
-        message_effect_id=5104841245755180586)  # 🔥
-
-    return
+            await message.reply_text("Something went wrong!")
+            print(f"Error getting messages: {e}")
+            return
+        finally:
+            await temp_msg.delete()
+        codeflix_msgs = []
+        for msg in messages:
+            caption = (CUSTOM_CAPTION.format(previouscaption="" if not msg.caption else msg.caption.html,
+                                             filename=msg.document.file_name) if bool(CUSTOM_CAPTION) and bool(msg.document)
+                       else ("" if not msg.caption else msg.caption.html))
+            reply_markup = msg.reply_markup if DISABLE_CHANNEL_BUTTON else None
+            try:
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML,
+                                            reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                codeflix_msgs.append(copied_msg)
+            except FloodWait as e:
+                await asyncio.sleep(e.x)
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML,
+                                            reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                codeflix_msgs.append(copied_msg)
+            except Exception as e:
+                print(f"Failed to send message: {e}")
+                pass
+        if FILE_AUTO_DELETE > 0:
+            notification_msg = await message.reply(
+                f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ {get_exp_time(FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
+            )
+            await asyncio.sleep(FILE_AUTO_DELETE)
+            for snt_msg in codeflix_msgs:
+                if snt_msg:
+                    try:
+                        await snt_msg.delete()
+                    except Exception as e:
+                        print(f"Error deleting message {snt_msg.id}: {e}")
+            try:
+                reload_url = (
+                    f"https://t.me/{client.username}?start={message.command[1]}"
+                    if message.command and len(message.command) > 1
+                    else None
+                )
+                keyboard = InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("ɢᴇᴛ ғɪʟᴇ ᴀɢᴀɪɴ!", url=reload_url)]]
+                ) if reload_url else None
+                await notification_msg.edit(
+                    "<b>ʏᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n\nᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ᴅᴇʟᴇᴛᴇᴅ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ 👇</b>",
+                    reply_markup=keyboard
+                )
+            except Exception as e:
+                print(f"Error updating notification with 'Get File Again' button: {e}")
+    else:
+        reply_markup = InlineKeyboardMarkup(
+            [
+                    [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movies8777")],
+    [
+                    InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
+                    InlineKeyboardButton('ʜᴇʟᴘ •', callback_data = "help")
+    ]
+            ]
+        )
+        await message.reply_photo(
+            photo=START_PIC,
+            caption=START_MSG.format(
+                first=message.from_user.first_name,
+                last=message.from_user.last_name,
+                username=None if not message.from_user.username else '@' + message.from_user.username,
+                mention=message.from_user.mention,
+                id=message.from_user.id
+            ),
+            reply_markup=reply_markup,
+            message_effect_id=5104841245755180586) # 🔥
+        return
 
 
 
