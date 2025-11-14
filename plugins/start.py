@@ -113,15 +113,15 @@ async def start_command(client: Client, message: Message):
                 return await message.reply("Invalid link.")
 
             token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            verify_link = f"https://t.me/{client.username}?start=verify_{token}"
+            shortlink = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verify_link)
             await db.update_verify_status(
                 user_id,
                 verify_token=token,
                 is_verified=False,
-                original_start=original_cmd  # SAVE ORIGINAL FILE LINK
+                original_start=original_cmd,
+                link=shortlink
             )
-
-            verify_link = f"https://t.me/{client.username}?start=verify_{token}"
-            shortlink = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verify_link)
 
             btn = [
                 [InlineKeyboardButton("OPEN LINK", url=shortlink),
