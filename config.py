@@ -24,8 +24,8 @@ API_HASH = os.environ.get("API_HASH", "") #Your API Hash from my.telegram.org
 #--------------------------------------------
 
 CHANNEL_ID = int(os.environ.get("CHANNEL_ID", "-1002043329768")) #Your db channel Id
-OWNER = os.environ.get("OWNER", "LOST8777") # Owner username without @
-OWNER_ID = int(os.environ.get("OWNER_ID", "6243694287")) # Owner id
+OWNER = os.environ.get("OWNER", "♚𝖧υηтєʀ⚰️") # Owner username without @
+OWNER_ID = int(os.environ.get("OWNER_ID", "8435672368")) # Owner id
 #--------------------------------------------
 PORT = os.environ.get("PORT", "8001")
 #--------------------------------------------
@@ -33,11 +33,11 @@ DB_URI = os.environ.get("DATABASE_URL", "mongodb+srv://hosoy42933:cgAc2eQk22JieE
 DB_NAME = os.environ.get("DATABASE_NAME", "ad_database")
 #--------------------------------------------
 FSUB_LINK_EXPIRY = int(os.getenv("FSUB_LINK_EXPIRY", "120"))  # 0 means no expiry
-BAN_SUPPORT = os.environ.get("BAN_SUPPORT", "https://t.me/+BsQObvPjpd1iMzI1")
+BAN_SUPPORT = os.environ.get("BAN_SUPPORT", "https://t.me/xenoStudie")
 TG_BOT_WORKERS = int(os.environ.get("TG_BOT_WORKERS", "200"))
 #--------------------------------------------
-START_PIC = os.environ.get("START_PIC", "https://i.postimg.cc/DyRZsgn2/IMG-20250723-120000-406.jpg")
-FORCE_PIC = os.environ.get("FORCE_PIC", "https://i.postimg.cc/pTVXxcYB/IMG-20250723-115957-521.jpg")
+START_PIC = os.environ.get("START_PIC", "https://postimg.cc/RJ4WX8yJ https://postimg.cc/vcXVSYQm https://postimg.cc/Rq41Pbcd")
+FORCE_PIC = os.environ.get("FORCE_PIC", "https://postimg.cc/QVJmhr8V https://postimg.cc/DWRsdx7N")
 
 #--------------------------------------------
 SHORTLINK_URL = os.environ.get("SHORTLINK_URL", "")
@@ -48,8 +48,8 @@ TUT_VID = os.environ.get("TUT_VID","https://t.me/HowToVerifyInBot")
 #--------------------------------------------
 
 #--------------------------------------------
-HELP_TXT = "<b><blockquote>ᴛʜɪs ɪs ᴀɴ ғɪʟᴇ ᴛᴏ ʟɪɴᴋ ʙᴏᴛ ᴡᴏʀᴋ ғᴏʀ @Movies8777\n\n❏ ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs\n├/start : sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ\n├/about : ᴏᴜʀ Iɴғᴏʀᴍᴀᴛɪᴏɴ\n└/help : ʜᴇʟᴘ ʀᴇʟᴀᴛᴇᴅ ʙᴏᴛ\n\n sɪᴍᴘʟʏ ᴄʟɪᴄᴋ ᴏɴ ʟɪɴᴋ ᴀɴᴅ sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ ᴊᴏɪɴ ʙᴏᴛʜ ᴄʜᴀɴɴᴇʟs ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ ᴛʜᴀᴛs ɪᴛ.....!\n\n ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ <a href=https://t.me/Movies8777>𝖣𝖾𝖺𝗍𝗁</a></blockquote></b>"
-ABOUT_TXT = "<b><blockquote>◈ ᴄʀᴇᴀᴛᴏʀ: <a href=https://t.me/Movies8777>𝖫𝗈𝗌𝗍</a>\n◈ ꜰᴏᴜɴᴅᴇʀ ᴏꜰ : <a href=https://t.me/Movies8777>𝖫𝗈𝗌𝗍 ɴᴇᴛᴡᴏʀᴋ</a>\n◈ ᴀɴɪᴍᴇ ᴄʜᴀɴɴᴇʟ : <a href=https://t.me/+fKjD0V-ndtA5NjM1>ᴀɴɪᴍᴇ</a>\n◈ sᴇʀɪᴇs ᴄʜᴀɴɴᴇʟ : <a href=https://t.me/+Pf6-2PAsrAczMzQ1>ᴡᴇʙsᴇʀɪᴇs</a>\n◈ ᴅᴇᴠᴇʟᴏᴘᴇʀ : <a href=https://t.me/Movies8777>𝖣𝖾𝖺𝗍𝗁</a></blockquote></b>"
+HELP_TXT = "<b><blockquote>ᴛʜɪs ɪs ᴀɴ ғɪʟᴇ ᴛᴏ ʟɪɴᴋ ʙᴏᴛ ᴡᴏʀᴋ ғᴏʀ @xenoStudie\n\n❏ ʙᴏᴛ ᴄᴏᴍᴍᴀɴᴅs\n├/start : sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ\n├/about : ᴏᴜʀ Iɴғᴏʀᴍᴀᴛɪᴏɴ\n└/help : ʜᴇʟᴘ ʀᴇʟᴀᴛᴇᴅ ʙᴏᴛ\n\n sɪᴍᴘʟʏ ᴄʟɪᴄᴋ ᴏɴ ʟɪɴᴋ ᴀɴᴅ sᴛᴀʀᴛ ᴛʜᴇ ʙᴏᴛ ᴊᴏɪɴ ʙᴏᴛʜ ᴄʜᴀɴɴᴇʟs ᴀɴᴅ ᴛʀʏ ᴀɢᴀɪɴ ᴛʜᴀᴛs ɪᴛ.....!\n\n ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ <a href=https://t.me/xenoStudie>𝖣𝖾𝖺𝗍𝗁</a></blockquote></b>"
+ABOUT_TXT = "<b><blockquote>◈ ᴄʀᴇᴀᴛᴏʀ: <a href=https://t.me/xenostudie>𝖫𝗈𝗌𝗍</a>\n◈ ꜰᴏᴜɴᴅᴇʀ ᴏꜰ : <a href=https://t.me/+otXaE3-eu7MzNjU9>𝖫𝗈𝗌𝗍 ɴᴇᴛᴡᴏʀᴋ</a>\n◈ нєηαтєє ᴄʜᴀɴɴᴇʟ : <a href=https://t.me/+1epnsIzoCx43YTk1>нєηαтєє</a>\n◈ sᴇʀɪᴇs ᴄʜᴀɴɴᴇʟ : <a href=https://t.me/+Pf6-2PAsrAczMzQ1>ᴡᴇʙsᴇʀɪᴇs</a>\n◈ ᴅᴇᴠᴇʟᴏᴘᴇʀ : <a href=https://t.me/Goathunterr>♚𝖧υηтєʀ⚰️ </a></blockquote></b>"
 #--------------------------------------------
 #--------------------------------------------
 START_MSG = os.environ.get("START_MESSAGE", "<b>ʜᴇʟʟᴏ {first}\n\n<blockquote> ɪ ᴀᴍ ғɪʟᴇ sᴛᴏʀᴇ ʙᴏᴛ, ɪ ᴄᴀɴ sᴛᴏʀᴇ ᴘʀɪᴠᴀᴛᴇ ғɪʟᴇs ɪɴ sᴘᴇᴄɪғɪᴇᴅ ᴄʜᴀɴɴᴇʟ ᴀɴᴅ ᴏᴛʜᴇʀ ᴜsᴇʀs ᴄᴀɴ ᴀᴄᴄᴇss ɪᴛ ғʀᴏᴍ sᴘᴇᴄɪᴀʟ ʟɪɴᴋ.</blockquote></b>")
@@ -91,9 +91,9 @@ USER_REPLY_TEXT = "ʙᴀᴋᴋᴀ ! ʏᴏᴜ ᴀʀᴇ ɴᴏᴛ ᴍʏ ꜱᴇɴᴘ
 #==========================(BUY PREMIUM)====================#
 
 OWNER_TAG = os.environ.get("OWNER_TAG", "𝖫𝗈𝗌𝗍")
-UPI_ID = os.environ.get("UPI_ID", "deathworld@axl")
-QR_PIC = os.environ.get("QR_PIC", "https://i.postimg.cc/c6WHD8WZ/IMG-20250802-165051-768.jpg")
-SCREENSHOT_URL = os.environ.get("SCREENSHOT_URL", f"t.me/DeathSupportBot")
+UPI_ID = os.environ.get("UPI_ID", "")
+QR_PIC = os.environ.get("QR_PIC", "")
+SCREENSHOT_URL = os.environ.get("SCREENSHOT_URL", f"t.me/Goathunterr")
 #--------------------------------------------
 #Time and its price
 #7 Days
