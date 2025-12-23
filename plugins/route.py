@@ -146,7 +146,7 @@ async def telegram_verify(request):
     <h2>🔐 Verification in Progress</h2>
     <div class="loader"></div>
     <p>You will be redirected automatically</p>
-    <pre>{debug}</pre>
+    <!--<pre>{debug}</pre>-->
   </div>
 </body>
 </html>
