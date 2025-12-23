@@ -89,27 +89,28 @@ async def start_command(client: Client, message: Message):
                 )
 
             if not verify_status['is_verified'] and not is_premium:
-            page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
-            verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
+    page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
+    verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
 
-await db.update_verify_status(
-    id,
-    page_token=page_token,
-    verify_token=verify_token,
-    is_verified=False
-)
+    await db.update_verify_status(
+        id,
+        page_token=page_token,
+        verify_token=verify_token,
+        is_verified=False
+    )
 
-verify_page = f"https://conservative-glen-editor1-4a2abba2.koyeb.app/link/{page_token}"
+    verify_page = f"https://conservative-glen-editor1-4a2abba2.koyeb.app/link/{page_token}"
 
-btn = [
-    [InlineKeyboardButton("• VERIFY •", url=verify_page)],
-    [InlineKeyboardButton("• TUTORIAL •", url=TUT_VID)]
-]
+    btn = [
+        [InlineKeyboardButton("• VERIFY •", url=verify_page)],
+        [InlineKeyboardButton("• TUTORIAL •", url=TUT_VID)]
+    ]
 
-return await message.reply(
-    "Your token has expired.\n\nPlease verify to continue.",
-    reply_markup=InlineKeyboardMarkup(btn)
-)
+    return await message.reply(
+        "Your token has expired.\n\nPlease verify to continue.",
+        reply_markup=InlineKeyboardMarkup(btn)
+    )
+
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
