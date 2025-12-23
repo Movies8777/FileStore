@@ -9,8 +9,8 @@ routes = web.RouteTableDef()
 
 # ENV VARIABLES (MUST BE SET IN KOYEB)
 BOT_USERNAME = os.getenv("BOT_USERNAME")       # without @
-SHORT_URL = os.getenv("")
-INSHORT_API_KEY = os.getenv("INSHORT_API_KEY")  # inshorturl api key
+SHORT_URL = os.getenv("SHORTLINK_URL")
+INSHORT_API_KEY = os.getenv("SHORTLINK_API")  # inshorturl api key
 
 
 @routes.get("/telegram/{user_id}/{page_token}", allow_head=True)
@@ -73,9 +73,9 @@ async def telegram_verify(request):
 
         encoded_url = urllib.parse.quote(telegram_link, safe="")
         api_url = (
-            "https://{SHORT_URL}.com/api"
-            f"?api={INSHORT_API_KEY}"
-            f"&url={encoded_url}"
+    f"https://{SHORT_URL}/api"
+    f"?api={INSHORT_API_KEY}"
+    f"&url={encoded_url}"
         )
 
         async with aiohttp.ClientSession() as session:
