@@ -7,8 +7,10 @@ from database.database import db
 
 routes = web.RouteTableDef()
 
-BOT_USERNAME = os.getenv("BOT_USERNAME")          # without @
-INSHORT_API_KEY = os.getenv("INSHORT_API_KEY")    # your API key
+# ENV VARIABLES (MUST BE SET IN KOYEB)
+BOT_USERNAME = os.getenv("BOT_USERNAME")       # without @
+SHORT_URL = os.getenv("")
+INSHORT_API_KEY = os.getenv("INSHORT_API_KEY")  # inshorturl api key
 
 
 @routes.get("/telegram/{user_id}/{page_token}", allow_head=True)
@@ -16,9 +18,9 @@ async def telegram_verify(request):
     debug = {}
 
     try:
-        # ─────────────────────────────
-        # 1️⃣ READ URL PARAMS
-        # ─────────────────────────────
+        # ────────────────
+        # 1️⃣ URL PARAMS
+        # ────────────────
         user_id = int(request.match_info["user_id"])
         page_token = request.match_info["page_token"]
 
@@ -26,9 +28,13 @@ async def telegram_verify(request):
         debug["page_token_from_url"] = page_token
         debug["bot_username"] = BOT_USERNAME
 
-        # ─────────────────────────────
-        # 2️⃣ FETCH USER FROM DB
-        # ─────────────────────────────
+        if not BOT_USERNAME:
+            debug["error"] = "BOT_USERNAME env not set"
+            return web.json_response(debug, status=500)
+
+        # ────────────────
+        # 2️⃣ DB CHECK
+        # ────────────────
         user = await db.get_verify_status(user_id)
 
         if not user:
@@ -48,21 +54,26 @@ async def telegram_verify(request):
             debug["error"] = "Verify token missing"
             return web.json_response(debug, status=400)
 
-        # ─────────────────────────────
-        # 3️⃣ TELEGRAM DEEP LINK
-        # ─────────────────────────────
+        # ────────────────
+        # 3️⃣ TELEGRAM LINK
+        # ────────────────
         telegram_link = (
             f"https://t.me/{BOT_USERNAME}"
             f"?start=verify_{user['verify_token']}"
         )
+
         debug["telegram_link"] = telegram_link
 
-        # ─────────────────────────────
-        # 4️⃣ CREATE SHORTLINK (INSHORTURL)
-        # ─────────────────────────────
+        # ────────────────
+        # 4️⃣ SHORTLINK (SHORTURL)
+        # ────────────────
+        if not INSHORT_API_KEY:
+            debug["error"] = "INSHORT_API_KEY env not set"
+            return web.json_response(debug, status=500)
+
         encoded_url = urllib.parse.quote(telegram_link, safe="")
         api_url = (
-            "https://inshorturl.com/api"
+            "https://{SHORT_URL}.com/api"
             f"?api={INSHORT_API_KEY}"
             f"&url={encoded_url}"
         )
@@ -81,9 +92,9 @@ async def telegram_verify(request):
 
         debug["short_url"] = short_url
 
-        # ─────────────────────────────
-        # 5️⃣ FINAL PAGE (AUTO REDIRECT + DEBUG)
-        # ─────────────────────────────
+        # ────────────────
+        # 5️⃣ FINAL PAGE
+        # ────────────────
         html = f"""
 <!DOCTYPE html>
 <html>
@@ -103,7 +114,7 @@ async def telegram_verify(request):
     }}
     .box {{
       text-align:center;
-      max-width:500px;
+      max-width:520px;
       padding:20px;
     }}
     .loader {{
@@ -135,7 +146,6 @@ async def telegram_verify(request):
     <h2>🔐 Verification in Progress</h2>
     <div class="loader"></div>
     <p>You will be redirected automatically</p>
-
     <pre>{debug}</pre>
   </div>
 </body>
