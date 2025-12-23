@@ -85,36 +85,37 @@ async def start_command(client: Client, message: Message):
                 current = await db.get_verify_count(id)
                 await db.set_verify_count(id, current + 1)
                 return await message.reply(
-                    f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}"
+                    f"✅ 𝗧𝗼𝗄𝗲𝗻 𝘃𝗲𝗋𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}"
                 )
 
-# ---- Replace the token verification block with this ----
-if not verify_status.get('is_verified') and not is_premium:
-    # generate tokens
-    page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
-    verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
+        # ---- Replace the token verification block with this ----
+        if not verify_status.get('is_verified') and not is_premium:
+            # generate tokens
+            page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
+            verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
 
-    # save token/status in DB
-    await db.update_verify_status(
-        id,
-        page_token=page_token,
-        verify_token=verify_token,
-        is_verified=False
-    ) 
+            # save token/status in DB
+            await db.update_verify_status(
+                id,
+                page_token=page_token,
+                verify_token=verify_token,
+                is_verified=False
+            ) 
 
-    verify_page = f"https://conservative-glen-editor1-4a2abba2.koyeb.app/link/{page_token}"
+            verify_page = f"https://conservative-glen-editor1-4a2abba2.koyeb.app/link/{page_token}"
 
-    btn = [
-        [InlineKeyboardButton("• VERIFY •", url=verify_page)],
-        [InlineKeyboardButton("• TUTORIAL •", url=TUT_VID)]
-    ]
+            btn = [
+                [InlineKeyboardButton("• VERIFY •", url=verify_page)],
+                [InlineKeyboardButton("• TUTORIAL •", url=TUT_VID)]
+            ]
 
-    try:
-        return await message.reply(
-            "Your token has expired.\n\nPlease verify to continue.",
-            reply_markup=InlineKeyboardMarkup(btn)
-        )
-        
+            # send verification prompt and return
+            await message.reply(
+                "Your token has expired.\n\nPlease verify to continue.",
+                reply_markup=InlineKeyboardMarkup(btn)
+            )
+            return
+
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
@@ -173,7 +174,7 @@ if not verify_status.get('is_verified') and not is_premium:
 
         if FILE_AUTO_DELETE > 0:
             notification_msg = await message.reply(
-                f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ  {get_exp_time(FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ ᴍᴇssᴀɢᴇs ʙᴇғᴏʀᴇ ɪᴛ ɢᴇᴛs Dᴇʟᴇᴛᴇᴅ.</b>"
+                f"<b>Tʜɪs Fɪʟᴇ ᴡɪʟʟ ʙᴇ Dᴇʟᴇᴛᴇᴅ ɪɴ  {get_exp_time(FILE_AUTO_DELETE)}. Pʟᴇᴀsᴇ sᴀᴠᴇ ᴏʀ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴛᴏ ʏᴏᴜʀ sᴀᴠᴇᴅ [...]"
             )
 
             await asyncio.sleep(FILE_AUTO_DELETE)
@@ -196,7 +197,7 @@ if not verify_status.get('is_verified') and not is_premium:
                 ) if reload_url else None
 
                 await notification_msg.edit(
-                    "<b>ʏᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n\nᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ʏᴏᴜʀ ᴅᴇʟᴇᴛᴇᴅ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ 👇</b>",
+                    "<b>ʏᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n\nᴄʟɪᴄᴋ ʙᴇʟᴏᴡ ʙᴜᴛᴛᴏɴ ᴛᴏ ɢᴇᴛ ʏᴏᴜ�[...]",
                     reply_markup=keyboard
                 )
             except Exception as e:
