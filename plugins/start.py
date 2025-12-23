@@ -88,16 +88,19 @@ async def start_command(client: Client, message: Message):
                     f"✅ 𝗧𝗼𝗸𝗲𝗻 𝘃𝗲𝗿𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}"
                 )
 
-            if not verify_status['is_verified'] and not is_premium:
+# ---- Replace the token verification block with this ----
+if not verify_status.get('is_verified') and not is_premium:
+    # generate tokens
     page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
     verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
 
+    # save token/status in DB
     await db.update_verify_status(
         id,
         page_token=page_token,
         verify_token=verify_token,
         is_verified=False
-    )
+    ) 
 
     verify_page = f"https://conservative-glen-editor1-4a2abba2.koyeb.app/link/{page_token}"
 
@@ -106,11 +109,12 @@ async def start_command(client: Client, message: Message):
         [InlineKeyboardButton("• TUTORIAL •", url=TUT_VID)]
     ]
 
-    return await message.reply(
-        "Your token has expired.\n\nPlease verify to continue.",
-        reply_markup=InlineKeyboardMarkup(btn)
-    )
-
+    try:
+        return await message.reply(
+            "Your token has expired.\n\nPlease verify to continue.",
+            reply_markup=InlineKeyboardMarkup(btn)
+        )
+        
         try:
             base64_string = text.split(" ", 1)[1]
         except IndexError:
@@ -160,8 +164,7 @@ async def start_command(client: Client, message: Message):
                 codeflix_msgs.append(copied_msg)
             except FloodWait as e:
                 await asyncio.sleep(e.x)
-                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, parse_mode=ParseMode.HTML, 
-                                            reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
+                copied_msg = await msg.copy(chat_id=message.from_user.id, caption=caption, p                                            reply_markup=reply_markup, protect_content=PROTECT_CONTENT)
                 codeflix_msgs.append(copied_msg)
             except Exception as e:
                 print(f"Failed to send message: {e}")
