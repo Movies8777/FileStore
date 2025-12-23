@@ -102,7 +102,10 @@ async def start_command(client: Client, message: Message):
                 is_verified=False
             ) 
 
-            verify_page = f"https://conservative-glen-editor1-4a2abba2.koyeb.app/link/{page_token}"
+            verify_page = (
+    f"https://conservative-glen-editor1-4a2abba2.koyeb.app/telegram/"
+    f"{id}/{page_token}"
+)
 
             btn = [
                 [InlineKeyboardButton("• VERIFY •", url=verify_page)],
