@@ -89,8 +89,8 @@ async def start_command(client: Client, message: Message):
                 )
 
             if not verify_status['is_verified'] and not is_premium:
-                page_token = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
-verify_token = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
+                page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
+verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
 
 await db.update_verify_status(
     id,
