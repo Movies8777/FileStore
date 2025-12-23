@@ -18,6 +18,7 @@ default_verify = {
     'is_verified': False,
     'verified_time': 0,
     'verify_token': "",
+    'page_token': "",
     'link': ""
 }
 
