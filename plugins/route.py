@@ -8,8 +8,8 @@ import os
 # ENVIRONMENT VARIABLES
 # ==============================
 BOT_USERNAME = os.getenv("BOT_USERNAME")          # e.g. Movies8777Bot
-SHORT_URL = os.getenv("SHORT_URL")                # e.g. softurl.in
-INSHORT_API_KEY = os.getenv("INSHORT_API_KEY")    # API key
+SHORT_URL = os.getenv("SHORTLINK_URL")                # e.g. softurl.in
+INSHORT_API_KEY = os.getenv("SHORTLINK_API")    # API key
 
 if not BOT_USERNAME or not SHORT_URL or not INSHORT_API_KEY:
     raise RuntimeError("Missing required environment variables")
