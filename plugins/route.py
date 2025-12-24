@@ -1,260 +1,114 @@
-from aiohttp import web
-import aiohttp
-import urllib.parse
-import re
 import os
-
-# ==============================
-# ENVIRONMENT VARIABLES
-# ==============================
-BOT_USERNAME = os.getenv("BOT_USERNAME")          # e.g. Movies8777Bot
-SHORT_URL = os.getenv("SHORTLINK_URL")                # e.g. softurl.in
-INSHORT_API_KEY = os.getenv("SHORTLINK_API")    # API key
-
-if not BOT_USERNAME or not SHORT_URL or not INSHORT_API_KEY:
-    raise RuntimeError("Missing required environment variables")
-
-# db must provide:
-# await db.get_verify_status(user_id)
-from database import db   # adjust if path differs
+import urllib.parse
+import requests
+from aiohttp import web
+from database import db
 
 routes = web.RouteTableDef()
 
-# ==============================
-# BROWSER DETECTION (PBH STYLE)
-# ==============================
-def detect_browser(user_agent: str):
-    if not user_agent:
-        return "unknown"
 
-    ua = user_agent.lower()
-
-    if "telegram" in ua or "webview" in ua:
-        return "telegram"
-    if "chrome" in ua and "edg" not in ua:
-        return "chrome"
-    if "safari" in ua and "chrome" not in ua:
-        return "safari"
-    if "firefox" in ua:
-        return "firefox"
-    if "edg" in ua:
-        return "edge"
-
-    return "unknown"
+def get_browser(request):
+    ua = request.headers.get("User-Agent", "Unknown")
+    if "Telegram" in ua:
+        return "Telegram In-App Browser"
+    if "Chrome" in ua:
+        return "Chrome"
+    if "Safari" in ua:
+        return "Safari"
+    if "Firefox" in ua:
+        return "Firefox"
+    return "Other"
 
 
-# ==============================
-# MAIN VERIFY ROUTE
-# ==============================
-@routes.get("/link/{masked_uid}/{page_token}/verify", allow_head=True)
-async def verify_page(request):
-    debug = {}
+def create_shortlink(long_url):
+    api_key = os.getenv("SHORTLINK_API")
+    domain = os.getenv("SHORTLINK_URL")
+
+    if not api_key or not domain:
+        return None, "Shortlink ENV missing"
+
+    encoded = urllib.parse.quote(long_url, safe="")
+    api_url = f"https://{domain}/api?api={api_key}&url={encoded}"
 
     try:
-        # ─────────────────────────
-        # 1️⃣ USER AGENT / BROWSER
-        # ─────────────────────────
-        user_agent = request.headers.get("User-Agent", "")
-        browser = detect_browser(user_agent)
-
-        debug["user_agent"] = user_agent
-        debug["detected_browser"] = browser
-
-        # ─────────────────────────
-        # 2️⃣ EXTRACT USER ID
-        # ─────────────────────────
-        masked_uid = request.match_info["masked_uid"]
-        page_token = request.match_info["page_token"]
-
-        user_id = re.sub(r"\D", "", masked_uid)
-
-        debug["masked_uid"] = masked_uid
-        debug["user_id"] = user_id
-        debug["page_token_from_url"] = page_token
-        debug["bot_username"] = BOT_USERNAME
-
-        if not user_id:
-            debug["error"] = "Invalid user id"
-            return web.json_response(debug, status=400)
-
-        user_id = int(user_id)
-
-        # ─────────────────────────
-        # 3️⃣ TELEGRAM IN-APP BLOCK
-        # ─────────────────────────
-        if browser == "telegram":
-            html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Open in Browser</title>
-<style>
-body {{
-  background:#ffffff;
-  color:#000;
-  font-family:Arial,sans-serif;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}}
-.box {{
-  text-align:center;
-  max-width:420px;
-}}
-button {{
-  background:#0088cc;
-  color:#fff;
-  border:none;
-  padding:14px 22px;
-  font-size:16px;
-  border-radius:6px;
-  cursor:pointer;
-}}
-pre {{
-  margin-top:20px;
-  font-size:12px;
-  background:#f4f4f4;
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:left;
-}}
-</style>
-</head>
-<body>
-<div class="box">
-  <h2>Open in Browser</h2>
-  <p>Please open this link in Chrome or Safari to continue.</p>
-  <button onclick="window.open('{request.url}','_blank')">
-    Open in Browser
-  </button>
-  <pre>{debug}</pre>
-</div>
-</body>
-</html>
-"""
-            return web.Response(text=html, content_type="text/html")
-
-        # ─────────────────────────
-        # 4️⃣ DATABASE CHECK
-        # ─────────────────────────
-        user = await db.get_verify_status(user_id)
-
-        if not user:
-            debug["error"] = "User not found in database"
-            return web.json_response(debug, status=404)
-
-        debug["page_token_in_db"] = user.get("page_token")
-        debug["verify_token"] = user.get("verify_token")
-        debug["is_verified"] = user.get("is_verified")
-        debug["verified_time"] = user.get("verified_time")
-
-        if user.get("page_token") != page_token:
-            debug["error"] = "Page token mismatch"
-            return web.json_response(debug, status=403)
-
-        # ─────────────────────────
-        # 5️⃣ TELEGRAM DEEP LINK
-        # ─────────────────────────
-        telegram_link = (
-            f"https://t.me/{BOT_USERNAME}"
-            f"?start=verify_{user['verify_token']}"
-        )
-
-        debug["telegram_link"] = telegram_link
-
-        # ─────────────────────────
-        # 6️⃣ CREATE SHORTLINK
-        # ─────────────────────────
-        encoded_url = urllib.parse.quote(telegram_link, safe="")
-
-        api_url = (
-            f"https://{SHORT_URL}/api"
-            f"?api={INSHORT_API_KEY}"
-            f"&url={encoded_url}"
-        )
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url, timeout=15) as resp:
-                short_data = await resp.json()
-
-        debug["shortlink_api_response"] = short_data
-
-        short_url = short_data.get("shortenedUrl")
-
-        if not short_url:
-            debug["error"] = "Shortlink creation failed"
-            return web.json_response(debug, status=500)
-
-        debug["short_url"] = short_url
-
-        # ─────────────────────────
-        # 7️⃣ WHITE THEME REDIRECT
-        # ─────────────────────────
-        html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<title>Verification</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="2;url={short_url}">
-<style>
-body {{
-  background:#ffffff;
-  color:#000;
-  font-family:Arial,sans-serif;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}}
-.box {{
-  text-align:center;
-}}
-.loader {{
-  width:36px;
-  height:36px;
-  border:4px solid #e5e7eb;
-  border-top:4px solid #2563eb;
-  border-radius:50%;
-  margin:20px auto;
-  animation:spin 1s linear infinite;
-}}
-@keyframes spin {{
-  0% {{transform:rotate(0deg)}}
-  100% {{transform:rotate(360deg)}}
-}}
-pre {{
-  margin-top:20px;
-  font-size:12px;
-  background:#f4f4f4;
-  padding:10px;
-  border:1px solid #ddd;
-  text-align:left;
-}}
-</style>
-</head>
-<body>
-
-<div class="box">
-  <h2>Verifying…</h2>
-  <div class="loader"></div>
-  <p>Please wait</p>
-  <pre>{debug}</pre>
-</div>
-
-<script>
-setTimeout(function() {{
-  window.location.replace("{short_url}");
-}}, 1200);
-</script>
-
-</body>
-</html>
-"""
-        return web.Response(text=html, content_type="text/html")
-
+        res = requests.get(api_url, timeout=10).json()
+        if res.get("status") == "error":
+            return None, res.get("message")
+        return res.get("shortenedUrl"), None
     except Exception as e:
-        debug["exception"] = str(e)
-        return web.json_response(debug, status=500)
+        return None, str(e)
+
+
+@routes.get("/link/{user_id}/{page_token}/verify")
+async def verify_page(request):
+    user_id = int(request.match_info["user_id"])
+    page_token = request.match_info["page_token"]
+
+    browser = get_browser(request)
+    verify_data = await db.get_verify_status(user_id)
+
+    debug = {
+        "user_id": user_id,
+        "page_token_from_url": page_token,
+        "page_token_in_db": verify_data.get("page_token"),
+        "verify_token": verify_data.get("verify_token"),
+        "is_verified": verify_data.get("is_verified"),
+        "verified_time": verify_data.get("verified_time"),
+        "browser": browser
+    }
+
+    # ❌ Invalid / expired
+    if verify_data.get("page_token") != page_token:
+        return web.json_response(
+            {**debug, "error": "Invalid or expired page token"},
+            status=403
+        )
+
+    # ✅ Already verified → redirect directly
+    if verify_data.get("is_verified"):
+        return web.HTTPFound(verify_data.get("link"))
+
+    bot_username = os.getenv("BOT_USERNAME")
+    telegram_link = f"https://t.me/{bot_username}?start=verify_{verify_data['verify_token']}"
+
+    short_url, err = create_shortlink(telegram_link)
+    if err:
+        return web.json_response({**debug, "shortlink_error": err}, status=500)
+
+    # Save link
+    await db.update_verify_status(
+        user_id,
+        verify_token=verify_data["verify_token"],
+        page_token=page_token,
+        link=short_url,
+        is_verified=False,
+        verified_time=0
+    )
+
+    # ✅ Plain white page + auto redirect
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Verification</title>
+        <meta charset="utf-8">
+        <meta http-equiv="refresh" content="2;url={short_url}">
+        <style>
+            body {{
+                background:#fff;
+                font-family:Arial;
+                text-align:center;
+                margin-top:60px;
+            }}
+        </style>
+    </head>
+    <body>
+        <h3>Redirecting to verification…</h3>
+        <p>If not redirected, <a href="{short_url}">click here</a></p>
+        <hr>
+        <pre>{debug}</pre>
+    </body>
+    </html>
+    """
+
+    return web.Response(text=html, content_type="text/html")
