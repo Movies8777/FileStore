@@ -78,22 +78,33 @@ async def cb_handler(client: Bot, query: CallbackQuery):
             chat_id=query.message.chat.id,
             photo=QR_PIC,
             caption=(
-                f"👋 {query.from_user.username}\n\n"
-                f"🎖️ Available Plans :\n\n"
-                f"● {PRICE1}  For 0 Days Prime Membership\n"
-                f"● {PRICE2}  For 1 Month Prime Membership\n"
-                f"● {PRICE3}  For 3 Months Prime Membership\n"
-                f"● {PRICE4}  For 6 Months Prime Membership\n"
-                f"● {PRICE5}  For 1 Year Prime Membership\n\n\n"
-                f"💵 ASK UPI ID TO ADMIN AND PAY THERE -  <code>{UPI_ID}</code>\n\n\n"
-                f"♻️ After Payment You Will Get Instant Membership \n\n\n"
-                f"‼️ Must Send Screenshot after payment & If anyone want custom time membrship then ask admin"
+                f"<blockquote><b>👋Hello {query.from_user.username}</b></blockquote>\n\n"
+                f"<blockquote><b>🏷 Pricing:</b>\n\n"
+                f"● <b>{PRICE1} : For 7 Days Prime Membership</b>\n"
+                f"● <b>{PRICE2} : For 1 Month Prime Membership</b>\n"
+                f"● <b>{PRICE3} : For 3 Months Prime Membership</b>\n"
+                f"● <b>{PRICE4} : For 6 Months Prime Membership</b>\n"
+                f"● <b>{PRICE5} : For 1 Year Prime Membership</b></blockquote>\n\n\n"
+                f"<blockquote>"
+                f"<b>💵 Payment Methods We Accept Now:</b>\n"
+                f"┏╼╾╼╾╼╾╼╾━\n"
+                f"♲ <b>Gift Card</b>\n"
+                f"♲ <b>Crypto</b>\n"
+                f"┗╼╾╼╾╼╾╼╾━"
+                f"</blockquote>\n\n"
+                f"<b>⚠️ Important Notice:</b>\n"
+                f"<blockquote>"
+                f"Please note that the @Spicylinebun Premium Subscription is non-refundable once purchased.\n"
+                f"We recommend reviewing all details carefully before completing your payment."
+                f"</blockquote>\n\n\n"
+
+                f"<b>🤙 To Buy: @Goathunterr</b>"
             ),
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
                         InlineKeyboardButton(
-                            "ADMIN 24/7", url=(SCREENSHOT_URL)
+                            "Send Giftcard/And payment (ᴀᴅᴍɪɴ)", url=(SCREENSHOT_URL)
                         )
                     ],
                     [
