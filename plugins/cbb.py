@@ -94,7 +94,7 @@ async def cb_handler(client: Bot, query: CallbackQuery):
                 f"</blockquote>\n\n"
                 f"<b>⚠️ Important Notice:</b>\n"
                 f"<blockquote>"
-                f"Please note that the @Spicylinebun Premium Subscription is non-refundable once purchased.\n"
+                f"Please note that this bot Premium Subscription is non-refundable once purchased.\n"
                 f"We recommend reviewing all details carefully before completing your payment."
                 f"</blockquote>\n\n\n"
 
