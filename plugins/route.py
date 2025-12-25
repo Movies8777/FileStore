@@ -300,6 +300,8 @@ async def telegram_verify(request):
         if debug is not None:
             debug["is_verified"] = user.get("is_verified")
             debug["session_age"] = user.get("created_time")
+            # DON'T expose verify_token or any sensitive information
+            debug["verify_token_present"] = bool(verify_token)
 
         # ────────────────
         # 3️⃣ TELEGRAM LINK GENERATION
@@ -318,7 +320,9 @@ async def telegram_verify(request):
             )
         
         if debug is not None:
-            debug["telegram_link"] = telegram_link
+            # DON'T store the actual telegram link with token
+            debug["telegram_link_generated"] = True
+            debug["telegram_bot"] = BOT_USERNAME
 
         # ────────────────
         # 4️⃣ SHORTLINK CREATION
@@ -341,7 +345,10 @@ async def telegram_verify(request):
                     logger.info(f"Using original Telegram link as fallback for user {user_id}")
                 
                 if debug is not None:
-                    debug["short_url"] = short_url
+                    # Only store short URL domain, not full URL with parameters
+                    parsed = urlparse(short_url)
+                    debug["short_url_domain"] = parsed.netloc if parsed.netloc else "unknown"
+                    debug["shortlink_creation"] = "success"
 
             except Exception as shortlink_error:
                 logger.error(f"Shortlink creation failed for user {user_id}: {str(shortlink_error)}")
@@ -349,6 +356,7 @@ async def telegram_verify(request):
                 short_url = telegram_link
                 if debug is not None:
                     debug["shortlink_error"] = str(shortlink_error)
+                    debug["shortlink_creation"] = "failed_with_fallback"
 
         # ────────────────
         # 5️⃣ FINAL RESPONSE
@@ -470,10 +478,16 @@ async def telegram_verify(request):
         )
         
         # Only include debug info in debug mode
-        if DEBUG_MODE:
-            debug["exception"] = str(e)
+        if DEBUG_MODE and debug is not None:
+            # Sanitize debug info before returning
+            sanitized_debug = {}
+            for key, value in debug.items():
+                # Only include non-sensitive debug info
+                if not any(sensitive in key.lower() for sensitive in ['token', 'verify', 'secret', 'password', 'key']):
+                    sanitized_debug[key] = value
+            sanitized_debug["exception"] = str(type(e).__name__)
             error_response = web.json_response(
-                {"error": "Internal server error", "debug": debug},
+                {"error": "Internal server error", "debug": sanitized_debug},
                 status=500
             )
         
