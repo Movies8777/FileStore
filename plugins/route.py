@@ -16,16 +16,15 @@ INSHORT_API_KEY = os.getenv("SHORTLINK_API")
 @routes.get("/telegram/{user_id}/{page_token}", allow_head=True)
 async def telegram_verify(request):
     try:
-        # 1️⃣ URL PARAMS
+        # 1️⃣ PARAMS
         user_id = int(request.match_info["user_id"])
         page_token = request.match_info["page_token"]
 
         if not BOT_USERNAME:
-            return error_page("Service misconfigured")
+            return error_page("Service unavailable")
 
-        # 2️⃣ DB CHECK
+        # 2️⃣ DATABASE CHECK
         user = await db.get_verify_status(user_id)
-
         if not user:
             return error_page("Invalid verification link")
 
@@ -41,7 +40,7 @@ async def telegram_verify(request):
             f"?start=verify_{user['verify_token']}"
         )
 
-        # 4️⃣ SHORTLINK
+        # 4️⃣ SHORT LINK
         if not INSHORT_API_KEY:
             return error_page("Service unavailable")
 
@@ -54,88 +53,90 @@ async def telegram_verify(request):
 
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url, timeout=15) as resp:
-                short_data = await resp.json()
+                data = await resp.json()
 
-        short_url = short_data.get("shortenedUrl")
+        short_url = data.get("shortenedUrl")
         if not short_url:
             return error_page("Redirection failed")
 
-        # 5️⃣ FINAL PAGE
+        # 5️⃣ REDIRECT PAGE (SCREENSHOT STYLE)
         html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Verification</title>
+  <title>Redirecting...</title>
   <meta http-equiv="refresh" content="2;url={short_url}">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <style>
     body {{
-      background:#ffffff;
-      font-family: 'Segoe UI', Arial, sans-serif;
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      height:100vh;
-      margin:0;
-      color:#0f172a;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #cfe3ff 0%, #e8ddff 45%, #f3e8ff 100%);
     }}
+
     .card {{
-      background:#ffffff;
-      padding:32px 28px;
-      border-radius:16px;
-      box-shadow:0 20px 40px rgba(15,23,42,0.08);
-      text-align:center;
-      max-width:420px;
-      width:100%;
-      animation:fadeIn 0.6s ease-out;
+      width: 88%;
+      max-width: 420px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      border-radius: 22px;
+      padding: 34px 26px;
+      text-align: center;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.12);
+      animation: slideUp 0.6s ease-out;
     }}
-    h2 {{
-      margin:0 0 10px;
-      font-size:22px;
-      font-weight:600;
-    }}
-    p {{
-      margin:0;
-      color:#64748b;
-      font-size:15px;
-    }}
+
     .loader {{
-      margin:24px auto;
-      width:52px;
-      height:52px;
-      border-radius:50%;
-      border:5px solid #e5e7eb;
-      border-top-color:#2563eb;
-      animation:spin 1s linear infinite;
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      border: 4px solid #dbeafe;
+      border-top-color: #3b82f6;
+      animation: spin 1s linear infinite;
     }}
-    .pulse {{
-      width:12px;
-      height:12px;
-      background:#2563eb;
-      border-radius:50%;
-      margin:16px auto 0;
-      animation:pulse 1.4s infinite ease-in-out;
+
+    h2 {{
+      margin: 0;
+      font-size: 22px;
+      font-weight: 600;
+      color: #0f172a;
     }}
+
+    p {{
+      margin-top: 10px;
+      font-size: 15px;
+      line-height: 1.5;
+      color: #64748b;
+    }}
+
     @keyframes spin {{
-      to {{ transform:rotate(360deg); }}
+      to {{ transform: rotate(360deg); }}
     }}
-    @keyframes pulse {{
-      0% {{ transform:scale(1); opacity:1; }}
-      50% {{ transform:scale(1.6); opacity:0.4; }}
-      100% {{ transform:scale(1); opacity:1; }}
-    }}
-    @keyframes fadeIn {{
-      from {{ opacity:0; transform:translateY(10px); }}
-      to {{ opacity:1; transform:translateY(0); }}
+
+    @keyframes slideUp {{
+      from {{
+        opacity: 0;
+        transform: translateY(20px);
+      }}
+      to {{
+        opacity: 1;
+        transform: translateY(0);
+      }}
     }}
   </style>
 </head>
+
 <body>
   <div class="card">
-    <h2>🔐 Verifying your account</h2>
     <div class="loader"></div>
-    <p>Please wait, redirecting to Telegram…</p>
-    <div class="pulse"></div>
+    <h2>Redirecting...</h2>
+    <p>Please wait while we take you to your destination.</p>
   </div>
 </body>
 </html>
@@ -166,7 +167,7 @@ def error_page(message):
     .box {{
       text-align:center;
       padding:30px;
-      border-radius:14px;
+      border-radius:16px;
       box-shadow:0 10px 30px rgba(0,0,0,0.08);
     }}
     h3 {{ margin-bottom:8px; }}
@@ -175,7 +176,7 @@ def error_page(message):
 </head>
 <body>
   <div class="box">
-    <h3>⚠️ {message}</h3>
+    <h3>{message}</h3>
     <p>Please try again later</p>
   </div>
 </body>
