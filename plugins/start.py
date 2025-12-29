@@ -103,7 +103,7 @@ async def start_command(client: Client, message: Message):
             ) 
 
             verify_page = (
-    f"https://conservative-glen-editor1-4a2abba2.koyeb.app/telegram/"
+    f"https://chronic-bee-movies87777-b5ec3e1f.koyeb.app/telegram/"
     f"{id}/{page_token}"
 )
 
