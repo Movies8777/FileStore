@@ -13,6 +13,36 @@ SHORT_URL = os.getenv("SHORTLINK_URL")
 INSHORT_API_KEY = os.getenv("SHORTLINK_API")
 
 
+# =========================
+# 🔍 BROWSER DETECTION
+# =========================
+def detect_browser(request):
+    ua = request.headers.get("User-Agent", "").lower()
+
+    browser = "Unknown"
+    if "chrome" in ua and "edg" not in ua:
+        browser = "Chrome"
+    elif "firefox" in ua:
+        browser = "Firefox"
+    elif "safari" in ua and "chrome" not in ua:
+        browser = "Safari"
+    elif "edg" in ua:
+        browser = "Edge"
+    elif "opera" in ua or "opr" in ua:
+        browser = "Opera"
+
+    platform = "Desktop"
+    if "android" in ua:
+        platform = "Android"
+    elif "iphone" in ua or "ipad" in ua:
+        platform = "iOS"
+
+    return browser, platform, ua
+
+
+# =========================
+# 🚀 MAIN ROUTE
+# =========================
 @routes.get("/telegram/{user_id}/{page_token}", allow_head=True)
 async def telegram_verify(request):
     try:
@@ -20,8 +50,19 @@ async def telegram_verify(request):
         user_id = int(request.match_info["user_id"])
         page_token = request.match_info["page_token"]
 
+        # debug flag (?debug=1)
+        debug = request.query.get("debug") == "1"
+
         if not BOT_USERNAME:
             return error_page("Service unavailable")
+
+        # 🔍 Browser check
+        browser, platform, ua = detect_browser(request)
+
+        # Console log (Render / Koyeb logs)
+        print(
+            f"[VERIFY] user={user_id} | browser={browser} | platform={platform} | ua={ua}"
+        )
 
         # 2️⃣ DATABASE CHECK
         user = await db.get_verify_status(user_id)
@@ -41,7 +82,7 @@ async def telegram_verify(request):
         )
 
         # 4️⃣ SHORT LINK
-        if not INSHORT_API_KEY:
+        if not INSHORT_API_KEY or not SHORT_URL:
             return error_page("Service unavailable")
 
         encoded_url = urllib.parse.quote(telegram_link, safe="")
@@ -59,7 +100,18 @@ async def telegram_verify(request):
         if not short_url:
             return error_page("Redirection failed")
 
-        # 5️⃣ REDIRECT PAGE (SCREENSHOT STYLE)
+        # 🧪 DEBUG HTML
+        debug_html = ""
+        if debug:
+            debug_html = f"""
+            <p style="margin-top:14px;font-size:13px;color:#475569">
+              <b>Debug Info</b><br>
+              Browser: {browser}<br>
+              Platform: {platform}
+            </p>
+            """
+
+        # 5️⃣ REDIRECT PAGE
         html = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -137,16 +189,21 @@ async def telegram_verify(request):
     <div class="loader"></div>
     <h2>Redirecting...</h2>
     <p>Please wait while we take you to your destination.</p>
+    {debug_html}
   </div>
 </body>
 </html>
 """
         return web.Response(text=html, content_type="text/html")
 
-    except Exception:
+    except Exception as e:
+        print("[ERROR]", e)
         return error_page("Something went wrong")
 
 
+# =========================
+# ❌ ERROR PAGE
+# =========================
 def error_page(message):
     html = f"""
 <!DOCTYPE html>
@@ -185,5 +242,8 @@ def error_page(message):
     return web.Response(text=html, content_type="text/html", status=400)
 
 
+# =========================
+# 🔗 ROUTE SETUP
+# =========================
 def setup_routes(app):
     app.add_routes(routes)
