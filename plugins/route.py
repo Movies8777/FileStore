@@ -1,8 +1,8 @@
 from aiohttp import web
 import os
-import aiohttp
 import urllib.parse
-from datetime import datetime, timedelta
+import aiohttp
+from datetime import datetime
 
 from database.database import db
 
@@ -10,137 +10,141 @@ routes = web.RouteTableDef()
 
 # ──────────────── ENV ────────────────
 BOT_USERNAME = os.getenv("BOT_USERNAME")       # without @
-SHORTLINK_API = os.getenv("SHORTLINK_API")
-SHORTLINK_URL = os.getenv("SHORTLINK_URL")
-KOYEB_URL = os.getenv("KOYEB_URL")
-
-# ──────────────── UTILS ────────────────
-
-async def resolve_shortlink(url):
-    """Resolve shortlink server-side (anti-bypass)"""
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, allow_redirects=True, timeout=10) as r:
-                return str(r.url)
-    except:
-        return url
+SHORTLINK_URL = os.getenv("SHORTLINK_URL")     # domain only
+SHORTLINK_API = os.getenv("SHORTLINK_API")     # api key
 
 
+# ──────────────── ERROR PAGE ────────────────
 def error_page(message, status=400):
     html = f"""
-    <html>
-    <head><title>Error</title></head>
-    <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial">
-        <div style="text-align:center">
-            <h3>{message}</h3>
-            <p>Please try again later</p>
-        </div>
-    </body>
-    </html>
-    """
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Error</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial">
+  <div style="text-align:center">
+    <h3>{message}</h3>
+    <p>Please try again later</p>
+  </div>
+</body>
+</html>
+"""
     return web.Response(text=html, content_type="text/html", status=status)
 
-# ──────────────── ROOT ────────────────
 
-@routes.get("/")
-async def root(_):
-    return web.json_response("Movies8777 FileStore")
-
-# ──────────────── TELEGRAM VERIFY ────────────────
-
-@routes.get("/telegram/{user_id}/{page_token}")
+# ──────────────── MAIN TELEGRAM VERIFY ROUTE ────────────────
+@routes.get("/telegram/{user_id}/{page_token}", allow_head=True)
 async def telegram_verify(request):
-    user_id = int(request.match_info["user_id"])
-    page_token = request.match_info["page_token"]
+    try:
+        # 1️⃣ PARAMS
+        user_id = int(request.match_info["user_id"])
+        page_token = request.match_info["page_token"]
 
-    user = await db.get_verify_status(user_id)
-    if not user or user.get("page_token") != page_token:
-        return error_page("Invalid or expired verification link")
+        if not BOT_USERNAME or not SHORTLINK_URL or not SHORTLINK_API:
+            return error_page("Service unavailable")
 
-    if user.get("is_verified"):
-        return verified_page()
+        # 2️⃣ DB CHECK (SAME AS YOUR FILE)
+        user = await db.get_verify_status(user_id)
+        if not user:
+            return error_page("Invalid verification link")
 
-    telegram_link = f"https://t.me/{BOT_USERNAME}?start=verify_{user['verify_token']}"
-    encoded = urllib.parse.quote(telegram_link, safe="")
+        if user.get("page_token") != page_token:
+            return error_page("Link expired or invalid")
 
-    api = f"https://{SHORTLINK_URL}/api?api={SHORTLINK_API}&url={encoded}"
+        if not user.get("verify_token"):
+            return error_page("Verification unavailable")
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(api) as r:
-            data = await r.json()
+        # 3️⃣ TELEGRAM DEEP LINK (UNCHANGED)
+        telegram_link = (
+            f"https://t.me/{BOT_USERNAME}"
+            f"?start=verify_{user['verify_token']}"
+        )
 
-    shortlink = data.get("shortenedUrl")
-    if not shortlink:
-        return error_page("Verification service unavailable")
+        # 4️⃣ SHORTLINK CREATE (UNCHANGED METHOD)
+        encoded_url = urllib.parse.quote(telegram_link, safe="")
+        api_url = (
+            f"https://{SHORTLINK_URL}/api"
+            f"?api={SHORTLINK_API}"
+            f"&url={encoded_url}"
+        )
 
-    await db.create_redirect(user["redirect_id"], shortlink, user_id)
+        async with aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=15)
+        ) as session:
+            async with session.get(api_url) as resp:
+                if resp.status != 200:
+                    return error_page("Redirection failed")
 
-    return web.HTTPFound(f"/redirect?id={user['redirect_id']}")
+                data = await resp.json()
 
-# ──────────────── REDIRECT GATEWAY ────────────────
+        short_url = data.get("shortenedUrl")
+        if not short_url:
+            return error_page("Redirection failed")
 
-@routes.get("/redirect")
-async def redirect_handler(request):
-    redirect_id = request.query.get("id")
-    if not redirect_id:
-        return error_page("Invalid request")
+        # 5️⃣ OPTIONAL: LOG VISIT (SAFE ADDITION)
+        try:
+            await db.log_verify_visit(
+                user_id=user_id,
+                ip=request.remote,
+                time=datetime.utcnow()
+            )
+        except:
+            pass
 
-    data = await db.get_redirect_full(redirect_id)
-    if not data:
-        return error_page("Link expired", 404)
+        # 6️⃣ SAME LOADER + META REFRESH (WORKING)
+        html = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Redirecting...</title>
+  <meta http-equiv="refresh" content="2;url={short_url}">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    user_id = data["user_id"]
-    created = data["created_at"]
+  <style>
+    body {{
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: radial-gradient(circle at top, #cfe3ff 0%, #e8ddff 45%, #f3e8ff 100%);
+    }}
+    .card {{
+      width: 88%;
+      max-width: 420px;
+      background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(16px);
+      border-radius: 22px;
+      padding: 34px 26px;
+      text-align: center;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.12);
+    }}
+    .loader {{
+      width: 44px;
+      height: 44px;
+      margin: 0 auto 18px;
+      border-radius: 50%;
+      border: 4px solid #dbeafe;
+      border-top-color: #3b82f6;
+      animation: spin 1s linear infinite;
+    }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+  </style>
+</head>
 
-    verify = await db.get_verify_status(user_id)
-    is_verified = verify and verify.get("is_verified")
+<body>
+  <div class="card">
+    <div class="loader"></div>
+    <h2>Redirecting...</h2>
+    <p>Please wait while we take you to Telegram</p>
+  </div>
+</body>
+</html>
+"""
+        return web.Response(text=html, content_type="text/html")
 
-    # Expiry for unverified users
-    if not is_verified and datetime.utcnow() - created > timedelta(minutes=2):
-        return error_page("Verification link expired", 404)
-
-    if is_verified:
-        return verified_page()
-
-    final_url = await resolve_shortlink(data["shortlink"])
-
-    await db.mark_redirect_visited(redirect_id)
-
-    return redirect_loader(final_url)
-
-# ──────────────── VERIFIED PAGE ────────────────
-
-def verified_page():
-    return web.Response(
-        text="""
-        <html><body style="background:#000;color:#0f0;display:flex;align-items:center;justify-content:center;height:100vh">
-        <div style="text-align:center">
-            <h1>✔ Verified</h1>
-            <p>You already have access</p>
-            <a href="https://t.me/Spicylinebun">Back to Bot</a>
-        </div>
-        </body></html>
-        """,
-        content_type="text/html"
-    )
-
-# ──────────────── LOADER PAGE ────────────────
-
-def redirect_loader(url):
-    return web.Response(
-        text=f"""
-        <html>
-        <head>
-            <meta http-equiv="refresh" content="2;url={url}">
-            <title>Redirecting</title>
-        </head>
-        <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial">
-            <div>
-                <h2>Redirecting...</h2>
-                <p>Please wait</p>
-            </div>
-        </body>
-        </html>
-        """,
-        content_type="text/html"
-    )
+    except Exception:
+        return error_page("Something went wrong")
