@@ -18,7 +18,7 @@ default_verify = {
     'is_verified': False,
     'verified_time': 0,
     'verify_token': "",
-    'page_token': "",
+    'original_start': "",
     'link': ""
 }
 
@@ -29,9 +29,9 @@ def new_user(id):
     'is_verified': False,
     'verified_time': 0,
     'verify_token': "",
-    'page_token': "",
+    'original_start': "",
     'link': "" 
-        }  }
+}  }
     
 
 class Rohit:
@@ -50,7 +50,7 @@ class Rohit:
         self.fsub_data = self.database['fsub']   
         self.rqst_fsub_data = self.database['request_forcesub']
         self.rqst_fsub_Channel_data = self.database['request_forcesub_channel']
-        
+        self.redirect_data = self.database['redirect_links']
 
 
     # USER DATA
@@ -229,14 +229,45 @@ class Rohit:
         verify = await self.db_verify_status(user_id)
         return verify
 
-    async def update_verify_status(self, user_id, verify_token="", is_verified=False, verified_time=0, link="", page_token=""):
+    async def update_verify_status(
+    self,
+    user_id,
+    verify_token="",
+    is_verified=False,
+    verified_time=0,
+    original_start="",
+    link=""
+):
         current = await self.db_verify_status(user_id)
         current['verify_token'] = verify_token
         current['is_verified'] = is_verified
         current['verified_time'] = verified_time
         current['link'] = link
-        current['page_token'] = page_token
+        current['original_start'] = original_start
         await self.db_update_verify_status(user_id, current)
+ 
+    async def add_redirect(self, redirect_id, shortlink, user_id):
+        await self.redirect_data.update_one(
+            {'_id': redirect_id},
+            {
+                '$set': {
+                    'shortlink': shortlink,
+                    'user_id': user_id,
+                    'created_at': datetime.utcnow(),
+                    'visited': False
+                }
+            },
+            upsert=True
+        )
+
+    async def get_redirect(self, redirect_id):
+        return await self.redirect_data.find_one({'_id': redirect_id})
+
+    async def mark_redirect_visited(self, redirect_id):
+        await self.redirect_data.update_one(
+            {'_id': redirect_id},
+            {'$set': {'visited': True}}
+        )
 
     # Set verify count (overwrite with new value)
     async def set_verify_count(self, user_id: int, count: int):
