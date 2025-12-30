@@ -1,211 +1,146 @@
 from aiohttp import web
 import os
+import aiohttp
+import urllib.parse
+from datetime import datetime, timedelta
+
+from database.database import db
 
 routes = web.RouteTableDef()
 
-KOYEB_URL = os.getenv("KOYEB_URL")  # example: https://yourapp.koyeb.app
+# ──────────────── ENV ────────────────
+BOT_USERNAME = os.getenv("BOT_USERNAME")       # without @
+SHORTLINK_API = os.getenv("SHORTLINK_API")
+SHORTLINK_URL = os.getenv("SHORTLINK_URL")
+KOYEB_URL = os.getenv("KOYEB_URL")
+
+# ──────────────── UTILS ────────────────
+
+async def resolve_shortlink(url):
+    """Resolve shortlink server-side (anti-bypass)"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, allow_redirects=True, timeout=10) as r:
+                return str(r.url)
+    except:
+        return url
 
 
-# ======================================================
-# /telegram → DETECT TELEGRAM IN-APP & FORCE EXTERNAL
-# ======================================================
+def error_page(message, status=400):
+    html = f"""
+    <html>
+    <head><title>Error</title></head>
+    <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial">
+        <div style="text-align:center">
+            <h3>{message}</h3>
+            <p>Please try again later</p>
+        </div>
+    </body>
+    </html>
+    """
+    return web.Response(text=html, content_type="text/html", status=status)
+
+# ──────────────── ROOT ────────────────
+
+@routes.get("/")
+async def root(_):
+    return web.json_response("Movies8777 FileStore")
+
+# ──────────────── TELEGRAM VERIFY ────────────────
+
 @routes.get("/telegram/{user_id}/{page_token}")
-async def telegram_detect(request):
-    user_id = request.match_info["user_id"]
+async def telegram_verify(request):
+    user_id = int(request.match_info["user_id"])
     page_token = request.match_info["page_token"]
 
-    redirect_url = f"{KOYEB_URL}/verifying/{user_id}/{page_token}"
+    user = await db.get_verify_status(user_id)
+    if not user or user.get("page_token") != page_token:
+        return error_page("Invalid or expired verification link")
 
-    html = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Opening Browser</title>
+    if user.get("is_verified"):
+        return verified_page()
 
-<style>
-body {{
-    margin: 0;
-    height: 100vh;
-    background: #0f2027;
-    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: Arial, sans-serif;
-    color: #fff;
-}}
+    telegram_link = f"https://t.me/{BOT_USERNAME}?start=verify_{user['verify_token']}"
+    encoded = urllib.parse.quote(telegram_link, safe="")
 
-.box {{
-    text-align: center;
-    background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(10px);
-    padding: 28px;
-    border-radius: 18px;
-    max-width: 360px;
-    width: 92%;
-    box-shadow: 0 25px 45px rgba(0,0,0,0.4);
-}}
+    api = f"https://{SHORTLINK_URL}/api?api={SHORTLINK_API}&url={encoded}"
 
-.loader {{
-    width: 48px;
-    height: 48px;
-    border: 4px solid rgba(255,255,255,0.2);
-    border-top: 4px solid #00d4ff;
-    border-radius: 50%;
-    margin: 0 auto 16px;
-    animation: spin 1s linear infinite;
-}}
+    async with aiohttp.ClientSession() as session:
+        async with session.get(api) as r:
+            data = await r.json()
 
-@keyframes spin {{
-    to {{ transform: rotate(360deg); }}
-}}
+    shortlink = data.get("shortenedUrl")
+    if not shortlink:
+        return error_page("Verification service unavailable")
 
-h2 {{
-    margin: 0 0 8px;
-    font-size: 20px;
-}}
+    await db.create_redirect(user["redirect_id"], shortlink, user_id)
 
-p {{
-    font-size: 14px;
-    opacity: 0.85;
-}}
-</style>
-</head>
+    return web.HTTPFound(f"/redirect?id={user['redirect_id']}")
 
-<body>
-<div class="box">
-    <div class="loader"></div>
-    <h2>Opening Secure Browser</h2>
-    <p>Please wait…</p>
-</div>
+# ──────────────── REDIRECT GATEWAY ────────────────
 
-<script>
-// =================================================
-// STACKOVERFLOW TELEGRAM DETECTION (NO UA)
-// =================================================
-function isTelegramInApp() {{
-    return (
-        typeof window.TelegramWebviewProxy !== "undefined" ||
-        typeof window.Telegram !== "undefined"
-    );
-}}
+@routes.get("/redirect")
+async def redirect_handler(request):
+    redirect_id = request.query.get("id")
+    if not redirect_id:
+        return error_page("Invalid request")
 
-// =================================================
-// FORCE OPEN SYSTEM BROWSER
-// =================================================
-function openExternal(url) {{
-    // iOS (Safari)
-    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {{
-        window.open(url, "_blank");
-        return;
-    }}
+    data = await db.get_redirect_full(redirect_id)
+    if not data:
+        return error_page("Link expired", 404)
 
-    // Android (Chrome)
-    if (/Android/i.test(navigator.userAgent)) {{
-        window.location.href = url;
-        return;
-    }}
+    user_id = data["user_id"]
+    created = data["created_at"]
 
-    // Desktop (Windows / macOS / Linux)
-    window.open(url, "_blank");
-}}
+    verify = await db.get_verify_status(user_id)
+    is_verified = verify and verify.get("is_verified")
 
-setTimeout(() => {{
-    if (isTelegramInApp()) {{
-        openExternal("{redirect_url}");
-    }} else {{
-        // Already external browser
-        window.location.href = "{redirect_url}";
-    }}
-}}, 900);
-</script>
+    # Expiry for unverified users
+    if not is_verified and datetime.utcnow() - created > timedelta(minutes=2):
+        return error_page("Verification link expired", 404)
 
-</body>
-</html>
-"""
+    if is_verified:
+        return verified_page()
 
-    return web.Response(text=html, content_type="text/html")
+    final_url = await resolve_shortlink(data["shortlink"])
 
+    await db.mark_redirect_visited(redirect_id)
 
-# ======================================================
-# /verifying → EXTERNAL BROWSER DEBUG PAGE
-# ======================================================
-@routes.get("/verifying/{user_id}/{page_token}")
-async def verifying_page(request):
-    user_id = request.match_info["user_id"]
-    page_token = request.match_info["page_token"]
-    ua = request.headers.get("User-Agent", "Unknown")
+    return redirect_loader(final_url)
 
-    html = f"""
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>External Browser Confirmed</title>
+# ──────────────── VERIFIED PAGE ────────────────
 
-<style>
-body {{
-    margin: 0;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #141e30, #243b55);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: Arial, sans-serif;
-    color: #fff;
-}}
+def verified_page():
+    return web.Response(
+        text="""
+        <html><body style="background:#000;color:#0f0;display:flex;align-items:center;justify-content:center;height:100vh">
+        <div style="text-align:center">
+            <h1>✔ Verified</h1>
+            <p>You already have access</p>
+            <a href="https://t.me/Spicylinebun">Back to Bot</a>
+        </div>
+        </body></html>
+        """,
+        content_type="text/html"
+    )
 
-.card {{
-    background: rgba(255,255,255,0.1);
-    backdrop-filter: blur(12px);
-    border-radius: 18px;
-    padding: 26px;
-    max-width: 420px;
-    width: 94%;
-    box-shadow: 0 30px 45px rgba(0,0,0,0.45);
-}}
+# ──────────────── LOADER PAGE ────────────────
 
-.badge {{
-    display: inline-block;
-    background: rgba(0,255,150,0.25);
-    color: #00ff9c;
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 13px;
-    margin-bottom: 12px;
-}}
-
-.code {{
-    background: rgba(0,0,0,0.35);
-    padding: 10px;
-    border-radius: 10px;
-    font-size: 12px;
-    word-break: break-all;
-}}
-</style>
-</head>
-
-<body>
-<div class="card">
-    <span class="badge">External Browser</span>
-    <h2>Success ✅</h2>
-    <p>This page is opened outside Telegram in-app browser.</p>
-
-    <div class="code">
-        <b>User ID:</b> {user_id}<br><br>
-        <b>Page Token:</b> {page_token}<br><br>
-        <b>User-Agent:</b><br>{ua}
-    </div>
-</div>
-</body>
-</html>
-"""
-
-    return web.Response(text=html, content_type="text/html")
-
-
-def setup_routes(app):
-    app.add_routes(routes)
+def redirect_loader(url):
+    return web.Response(
+        text=f"""
+        <html>
+        <head>
+            <meta http-equiv="refresh" content="2;url={url}">
+            <title>Redirecting</title>
+        </head>
+        <body style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:Arial">
+            <div>
+                <h2>Redirecting...</h2>
+                <p>Please wait</p>
+            </div>
+        </body>
+        </html>
+        """,
+        content_type="text/html"
+    )
