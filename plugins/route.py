@@ -12,7 +12,7 @@ SHORTLINK_URL = os.getenv("SHORTLINK_URL")
 
 
 # =========================
-# CREATE SHORTLINK
+# SHORTLINK CREATOR
 # =========================
 async def create_shortlink(url):
     if not SHORTLINK_API or not SHORTLINK_URL:
@@ -48,14 +48,14 @@ async def telegram_handler(request):
     verify_url = f"https://t.me/{BOT_USERNAME}?start=verify_{user['verify_token']}"
 
     # =========================
-    # ALREADY IN EXTERNAL BROWSER
+    # EXTERNAL BROWSER → CREATE SHORTLINK
     # =========================
     if ext == "1":
         shortlink = await create_shortlink(verify_url)
         raise web.HTTPFound(shortlink)
 
     # =========================
-    # TELEGRAM IN-APP → FORCE EXTERNAL
+    # TELEGRAM IN-APP DETECTION (STACKOVERFLOW METHOD)
     # =========================
     html = f"""
 <!DOCTYPE html>
@@ -65,27 +65,29 @@ async def telegram_handler(request):
 <title>Redirecting…</title>
 </head>
 <body style="font-family:Arial;text-align:center;margin-top:40px">
-
 <p>Opening secure browser…</p>
 
 <script>
+// StackOverflow recommended detection
 function isTelegramInApp() {{
     return (
-        typeof window.Telegram !== "undefined" ||
         typeof window.TelegramWebviewProxy !== "undefined" ||
+        typeof window.Telegram !== "undefined" ||
+        typeof window.TelegramWebApp !== "undefined" ||
         navigator.userAgent.toLowerCase().includes("telegram")
     );
 }}
 
-const baseUrl = window.location.origin +
+const externalUrl =
+    window.location.origin +
     "/telegram/{user_id}/{page_token}?ext=1";
 
 if (isTelegramInApp()) {{
-    // Telegram In-App → open externally
-    window.location.href = baseUrl;
+    // Telegram In-App → force external browser
+    window.location.href = externalUrl;
 }} else {{
-    // Already normal browser → mark external
-    window.location.href = baseUrl;
+    // Already normal browser → allow shortlink creation
+    window.location.href = externalUrl;
 }}
 </script>
 
