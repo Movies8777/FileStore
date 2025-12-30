@@ -3,29 +3,131 @@ import os
 
 routes = web.RouteTableDef()
 
-KOYEB_URL = os.getenv("KOYEB_URL")
+KOYEB_URL = os.getenv("KOYEB_URL")  # e.g. https://your-app.koyeb.app
 
 
-# =========================
-# MAIN DETECT ROUTE
-# =========================
-@routes.get("/detect")
-async def detect_browser(request):
-    user_agent = request.headers.get("User-Agent", "Unknown")
+# =====================================================
+# /telegram → DETECT TELEGRAM IN-APP & REDIRECT
+# =====================================================
+@routes.get("/telegram/{user_id}/{page_token}")
+async def detect_telegram(request):
+    user_id = request.match_info["user_id"]
+    page_token = request.match_info["page_token"]
+
+    verifying_url = f"{KOYEB_URL}/verifying/{user_id}/{page_token}"
 
     html = f"""
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Browser Detection</title>
+<title>Checking Browser</title>
+
+<style>
+body {{
+    margin: 0;
+    height: 100vh;
+    background: linear-gradient(135deg, #141e30, #243b55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial;
+    color: #fff;
+}}
+
+.box {{
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 18px;
+    padding: 28px;
+    max-width: 360px;
+    width: 92%;
+    text-align: center;
+    box-shadow: 0 25px 40px rgba(0,0,0,0.4);
+}}
+
+.loader {{
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255,255,255,0.2);
+    border-top: 4px solid #00d4ff;
+    border-radius: 50%;
+    margin: 0 auto 18px;
+    animation: spin 1s linear infinite;
+}}
+
+@keyframes spin {{
+    to {{ transform: rotate(360deg); }}
+}}
+
+h2 {{
+    margin: 0 0 8px;
+    font-size: 20px;
+}}
+
+p {{
+    font-size: 14px;
+    opacity: 0.85;
+}}
+</style>
+</head>
+
+<body>
+<div class="box">
+    <div class="loader"></div>
+    <h2>Checking browser…</h2>
+    <p>Please wait</p>
+</div>
+
+<script>
+// StackOverflow Telegram in-app detection
+function isTelegramInApp() {{
+    return (
+        typeof window.TelegramWebviewProxy !== "undefined" ||
+        typeof window.Telegram !== "undefined" ||
+        typeof window.TelegramWebApp !== "undefined" ||
+        navigator.userAgent.toLowerCase().includes("telegram")
+    );
+}}
+
+setTimeout(() => {{
+    // In BOTH cases we move to /verifying/
+    // Telegram → forces external browser
+    // Normal browser → simple redirect
+    window.location.href = "{verifying_url}";
+}}, 1000);
+</script>
+
+</body>
+</html>
+"""
+
+    return web.Response(text=html, content_type="text/html")
+
+
+# =====================================================
+# /verifying → EXTERNAL BROWSER DEBUG SUCCESS
+# =====================================================
+@routes.get("/verifying/{user_id}/{page_token}")
+async def verifying_debug(request):
+    user_id = request.match_info["user_id"]
+    page_token = request.match_info["page_token"]
+    ua = request.headers.get("User-Agent", "Unknown")
+
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verification Debug</title>
 
 <style>
 body {{
     margin: 0;
     min-height: 100vh;
-    background: linear-gradient(135deg, #141e30, #243b55);
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -35,35 +137,22 @@ body {{
 
 .card {{
     background: rgba(255,255,255,0.08);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
     border-radius: 18px;
     padding: 26px;
     max-width: 420px;
-    width: 92%;
-    box-shadow: 0 25px 45px rgba(0,0,0,0.4);
-}}
-
-h2 {{
-    margin-top: 0;
-    font-size: 22px;
+    width: 94%;
+    box-shadow: 0 30px 45px rgba(0,0,0,0.45);
 }}
 
 .badge {{
     display: inline-block;
-    padding: 6px 12px;
+    padding: 6px 14px;
     border-radius: 20px;
     font-size: 13px;
+    background: rgba(0,255,150,0.25);
+    color: #00ff9c;
     margin-bottom: 12px;
-}}
-
-.ok {{
-    background: rgba(0,255,150,0.2);
-    color: #00ffa2;
-}}
-
-.warn {{
-    background: rgba(255,200,0,0.2);
-    color: #ffd24d;
 }}
 
 .code {{
@@ -78,61 +167,16 @@ h2 {{
 
 <body>
 <div class="card">
-    <div id="status"></div>
-    <h2 id="title">Checking Browser…</h2>
-    <p id="desc"></p>
+    <span class="badge">External Browser Detected</span>
+    <h2>Debug Successful ✅</h2>
+    <p>This page is opened outside Telegram in-app browser.</p>
 
     <div class="code">
-        <strong>User-Agent:</strong><br>
-        {user_agent}
+        <strong>User ID:</strong> {user_id}<br><br>
+        <strong>Page Token:</strong> {page_token}<br><br>
+        <strong>User-Agent:</strong><br>{ua}
     </div>
 </div>
-
-<script>
-// =============================
-// STACKOVERFLOW TELEGRAM CHECK
-// =============================
-function isTelegramInApp() {{
-    return (
-        typeof window.TelegramWebviewProxy !== "undefined" ||
-        typeof window.Telegram !== "undefined" ||
-        typeof window.TelegramWebApp !== "undefined" ||
-        navigator.userAgent.toLowerCase().includes("telegram")
-    );
-}}
-
-// OS detection
-function getOS() {{
-    const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes("android")) return "Android";
-    if (ua.includes("iphone") || ua.includes("ipad")) return "iOS";
-    if (ua.includes("windows")) return "Windows";
-    if (ua.includes("mac")) return "macOS";
-    return "Unknown";
-}}
-
-setTimeout(() => {{
-    if (isTelegramInApp()) {{
-        document.getElementById("status").innerHTML =
-            '<span class="badge warn">Telegram In-App Browser</span>';
-        document.getElementById("title").innerText =
-            "Opening External Browser";
-        document.getElementById("desc").innerText =
-            "You are using Telegram in-app browser. Redirecting to system browser…";
-
-        // 🔁 Redirect to KOYEB_URL
-        window.location.href = "{KOYEB_URL}";
-    }} else {{
-        document.getElementById("status").innerHTML =
-            '<span class="badge ok">External Browser</span>';
-        document.getElementById("title").innerText =
-            "Success!";
-        document.getElementById("desc").innerText =
-            "You are already using a supported browser (" + getOS() + ").";
-    }}
-}}, 1200);
-</script>
-
 </body>
 </html>
 """
