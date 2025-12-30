@@ -1,23 +1,27 @@
 from aiohttp import web
 import os
+import urllib.parse
+import aiohttp
+
 from database.database import db
 
 routes = web.RouteTableDef()
 
+# ENV
 BOT_USERNAME = os.getenv("BOT_USERNAME")
+SHORT_URL = os.getenv("SHORTLINK_URL")
+SHORT_API = os.getenv("SHORTLINK_API")
 
 
 # =========================
-# 🔍 FULL BROWSER DEBUG
+# 🔍 SERVER-SIDE BROWSER
 # =========================
 def detect_browser(request):
     ua = request.headers.get("User-Agent", "").lower()
 
     browser = "Unknown"
     platform = "Unknown"
-    in_app = False
 
-    # Platform detection
     if "android" in ua:
         platform = "Android"
     elif "iphone" in ua or "ipad" in ua:
@@ -29,13 +33,9 @@ def detect_browser(request):
     elif "linux" in ua:
         platform = "Linux"
     else:
-        platform = "Desktop/Other"
+        platform = "Other"
 
-    # Browser detection
-    if "telegram" in ua or "tgweb" in ua:
-        browser = "Telegram In-App"
-        in_app = True
-    elif "chrome" in ua and "edg" not in ua:
+    if "chrome" in ua and "edg" not in ua:
         browser = "Chrome"
     elif "firefox" in ua:
         browser = "Firefox"
@@ -46,100 +46,138 @@ def detect_browser(request):
     elif "opera" in ua or "opr" in ua:
         browser = "Opera"
 
-    return browser, platform, in_app, ua
+    return browser, platform, ua
 
 
 # =========================
-# 🧪 DEBUG ROUTE ONLY
+# 🧪 FULL DEBUG ROUTE
 # =========================
 @routes.get("/telegram/{user_id}/{page_token}", allow_head=True)
-async def telegram_verify(request):
+async def telegram_debug(request):
     try:
         user_id = int(request.match_info["user_id"])
         page_token = request.match_info["page_token"]
 
         if not BOT_USERNAME:
-            return error_page("Service unavailable")
+            return error_page("BOT_USERNAME not set")
 
-        # DB check (kept for safety)
+        # DB CHECK
         user = await db.get_verify_status(user_id)
         if not user or user.get("page_token") != page_token:
             return error_page("Invalid or expired link")
 
-        browser, platform, in_app, ua = detect_browser(request)
+        verify_token = user.get("verify_token")
 
-        # Console log
+        # Telegram deep link
+        telegram_link = f"https://t.me/{BOT_USERNAME}?start=verify_{verify_token}"
+
+        # Shortlink (generated only)
+        shortlink = "N/A"
+        if SHORT_API and SHORT_URL:
+            encoded = urllib.parse.quote(telegram_link, safe="")
+            api_url = f"https://{SHORT_URL}/api?api={SHORT_API}&url={encoded}"
+            async with aiohttp.ClientSession() as session:
+                async with session.get(api_url, timeout=10) as resp:
+                    data = await resp.json()
+                    shortlink = data.get("shortenedUrl", "FAILED")
+
+        # Browser detection (server)
+        browser, platform, ua = detect_browser(request)
+
         print(
-            f"[DEBUG] user={user_id} | platform={platform} | browser={browser} | in_app={in_app}"
+            f"[DEBUG] user={user_id} | platform={platform} | browser={browser}"
         )
 
-        # DEBUG PAGE
+        # =========================
+        # DEBUG PAGE (WITH JS CHECK)
+        # =========================
         html = f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <title>Browser Debug</title>
+  <title>Telegram Full Debug</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {{
       margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      padding: 20px;
       font-family: Arial, sans-serif;
-      background: #f8fafc;
+      background: #f1f5f9;
     }}
     .card {{
-      width: 92%;
-      max-width: 460px;
+      max-width: 760px;
+      margin: auto;
       background: #ffffff;
       padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+      border-radius: 14px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
     }}
-    h2 {{
-      margin-bottom: 14px;
-      color: #0f172a;
-    }}
-    p {{
-      margin: 6px 0;
-      font-size: 14px;
-      color: #334155;
-    }}
-    .ua {{
-      margin-top: 12px;
-      font-size: 12px;
-      color: #64748b;
-      word-break: break-all;
+    h2 {{ color:#0f172a; }}
+    p {{ font-size:14px;color:#334155;margin:6px 0; }}
+    code {{
+      display:block;
+      background:#0f172a;
+      color:#e5e7eb;
+      padding:10px;
+      border-radius:10px;
+      font-size:12px;
+      word-break:break-all;
     }}
     .tag {{
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 8px;
-      background: #e5edff;
-      color: #1e40af;
-      font-size: 12px;
-      margin-top: 6px;
+      display:inline-block;
+      padding:4px 8px;
+      background:#e0e7ff;
+      color:#1e3a8a;
+      border-radius:8px;
+      font-size:12px;
+      margin-top:6px;
     }}
   </style>
 </head>
 <body>
   <div class="card">
-    <h2>Browser Debug Info</h2>
+    <h2>Telegram Verification – Full Debug</h2>
 
     <p><b>User ID:</b> {user_id}</p>
-    <p><b>Platform:</b> {platform}</p>
-    <p><b>Browser:</b> {browser}</p>
-    <p><b>Telegram In-App:</b> {in_app}</p>
+    <p><b>BOT Username:</b> @{BOT_USERNAME}</p>
+    <p><b>Page Token:</b> {page_token}</p>
+    <p><b>Verify Token:</b> {verify_token}</p>
 
-    <div class="tag">Debug Mode</div>
+    <hr>
 
-    <div class="ua">
-      <b>User-Agent:</b><br>
-      {ua}
-    </div>
+    <p><b>Telegram Start Link:</b></p>
+    <code>{telegram_link}</code>
+
+    <p><b>Generated Shortlink:</b></p>
+    <code>{shortlink}</code>
+
+    <hr>
+
+    <p><b>Platform (Server):</b> {platform}</p>
+    <p><b>Browser (Server):</b> {browser}</p>
+
+    <p class="tag">Server Debug</p>
+
+    <hr>
+
+    <p><b>User-Agent:</b></p>
+    <code>{ua}</code>
+
+    <hr>
+
+    <p><b>Telegram In-App Detection (Client JS):</b></p>
+    <p id="tg-status">Checking...</p>
+    <p class="tag">Client Debug</p>
   </div>
+
+  <script>
+    let isTelegramWebview =
+      typeof window.TelegramWebview !== "undefined" ||
+      typeof window.TelegramWebviewProxy !== "undefined";
+
+    document.getElementById("tg-status").innerHTML =
+      isTelegramWebview ? "YES (Telegram In-App Browser)" : "NO (Normal Browser)";
+  </script>
 </body>
 </html>
 """
