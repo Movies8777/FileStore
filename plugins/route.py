@@ -1,74 +1,97 @@
 from aiohttp import web
 import os
-import urllib.parse
-import aiohttp
-from database.database import db
 
 routes = web.RouteTableDef()
 
-BOT_USERNAME = os.getenv("BOT_USERNAME")
-SHORTLINK_API = os.getenv("SHORTLINK_API")
-SHORTLINK_URL = os.getenv("SHORTLINK_URL")
+KOYEB_URL = os.getenv("KOYEB_URL")
 
 
 # =========================
-# SHORTLINK CREATOR
+# MAIN DETECT ROUTE
 # =========================
-async def create_shortlink(url):
-    if not SHORTLINK_API or not SHORTLINK_URL:
-        return url
+@routes.get("/detect")
+async def detect_browser(request):
+    user_agent = request.headers.get("User-Agent", "Unknown")
 
-    try:
-        encoded = urllib.parse.quote(url, safe="")
-        api = f"https://{SHORTLINK_URL}/api?api={SHORTLINK_API}&url={encoded}"
-
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api, timeout=10) as resp:
-                data = await resp.json()
-                return data.get("shortenedUrl", url)
-
-    except Exception as e:
-        print("[SHORTLINK ERROR]", e)
-        return url
-
-
-# =========================
-# MAIN TELEGRAM ROUTE
-# =========================
-@routes.get("/telegram/{user_id}/{page_token}")
-async def telegram_handler(request):
-    user_id = int(request.match_info["user_id"])
-    page_token = request.match_info["page_token"]
-    ext = request.query.get("ext")  # external browser flag
-
-    user = await db.get_verify_status(user_id)
-    if not user or user.get("page_token") != page_token:
-        return error_page("Invalid or expired link")
-
-    verify_url = f"https://t.me/{BOT_USERNAME}?start=verify_{user['verify_token']}"
-
-    # =========================
-    # EXTERNAL BROWSER → CREATE SHORTLINK
-    # =========================
-    if ext == "1":
-        shortlink = await create_shortlink(verify_url)
-        raise web.HTTPFound(shortlink)
-
-    # =========================
-    # TELEGRAM IN-APP DETECTION (STACKOVERFLOW METHOD)
-    # =========================
     html = f"""
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Redirecting…</title>
+<title>Browser Detection</title>
+
+<style>
+body {{
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #141e30, #243b55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial;
+    color: #fff;
+}}
+
+.card {{
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    border-radius: 18px;
+    padding: 26px;
+    max-width: 420px;
+    width: 92%;
+    box-shadow: 0 25px 45px rgba(0,0,0,0.4);
+}}
+
+h2 {{
+    margin-top: 0;
+    font-size: 22px;
+}}
+
+.badge {{
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    margin-bottom: 12px;
+}}
+
+.ok {{
+    background: rgba(0,255,150,0.2);
+    color: #00ffa2;
+}}
+
+.warn {{
+    background: rgba(255,200,0,0.2);
+    color: #ffd24d;
+}}
+
+.code {{
+    background: rgba(0,0,0,0.35);
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    word-break: break-all;
+}}
+</style>
 </head>
-<body style="font-family:Arial;text-align:center;margin-top:40px">
-<p>Opening secure browser…</p>
+
+<body>
+<div class="card">
+    <div id="status"></div>
+    <h2 id="title">Checking Browser…</h2>
+    <p id="desc"></p>
+
+    <div class="code">
+        <strong>User-Agent:</strong><br>
+        {user_agent}
+    </div>
+</div>
 
 <script>
-// StackOverflow recommended detection
+// =============================
+// STACKOVERFLOW TELEGRAM CHECK
+// =============================
 function isTelegramInApp() {{
     return (
         typeof window.TelegramWebviewProxy !== "undefined" ||
@@ -78,17 +101,36 @@ function isTelegramInApp() {{
     );
 }}
 
-const externalUrl =
-    window.location.origin +
-    "/telegram/{user_id}/{page_token}?ext=1";
-
-if (isTelegramInApp()) {{
-    // Telegram In-App → force external browser
-    window.location.href = externalUrl;
-}} else {{
-    // Already normal browser → allow shortlink creation
-    window.location.href = externalUrl;
+// OS detection
+function getOS() {{
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes("android")) return "Android";
+    if (ua.includes("iphone") || ua.includes("ipad")) return "iOS";
+    if (ua.includes("windows")) return "Windows";
+    if (ua.includes("mac")) return "macOS";
+    return "Unknown";
 }}
+
+setTimeout(() => {{
+    if (isTelegramInApp()) {{
+        document.getElementById("status").innerHTML =
+            '<span class="badge warn">Telegram In-App Browser</span>';
+        document.getElementById("title").innerText =
+            "Opening External Browser";
+        document.getElementById("desc").innerText =
+            "You are using Telegram in-app browser. Redirecting to system browser…";
+
+        // 🔁 Redirect to KOYEB_URL
+        window.location.href = "{KOYEB_URL}";
+    }} else {{
+        document.getElementById("status").innerHTML =
+            '<span class="badge ok">External Browser</span>';
+        document.getElementById("title").innerText =
+            "Success!";
+        document.getElementById("desc").innerText =
+            "You are already using a supported browser (" + getOS() + ").";
+    }}
+}}, 1200);
 </script>
 
 </body>
@@ -96,17 +138,6 @@ if (isTelegramInApp()) {{
 """
 
     return web.Response(text=html, content_type="text/html")
-
-
-# =========================
-# ERROR PAGE
-# =========================
-def error_page(msg):
-    return web.Response(
-        text=f"<h3 style='text-align:center;margin-top:40px'>{msg}</h3>",
-        content_type="text/html",
-        status=400
-    )
 
 
 def setup_routes(app):
