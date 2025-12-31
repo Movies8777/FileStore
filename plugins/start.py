@@ -66,14 +66,13 @@ async def start_command(client: Client, message: Message):
     # File auto-delete time in seconds (Set your desired time in seconds here)
     FILE_AUTO_DELETE = await db.get_del_timer()
 
-text = message.text or ""
-if len(text) > 7:
+    text = message.text or ""
+    if len(text) > 7:
     verify_status = await db.get_verify_status(id)
 
-
         # Token expiry
-        if (SHORTLINK_URL or SHORTLINK_API):
-            if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
+         if SHORTLINK_URL and SHORTLINK_API:
+            if verify_status['is_verified'] and VERIFY_EXPIRE (time.time() - verify_status['verified_time']):
                 await db.update_verify_status(user_id, is_verified=False, verify_token="", original_start="")
 
         # === VERIFY TOKEN (User came back after shortlink) ===
