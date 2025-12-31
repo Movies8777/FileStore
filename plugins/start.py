@@ -68,7 +68,8 @@ async def start_command(client: Client, message: Message):
 
 text = message.text or ""
 if len(text) > 7:
-verify_status = await db.get_verify_status(id)
+    verify_status = await db.get_verify_status(id)
+
 
         # Token expiry
         if (SHORTLINK_URL or SHORTLINK_API):
