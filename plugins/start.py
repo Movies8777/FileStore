@@ -109,7 +109,7 @@ async def start_command(client: Client, message: Message):
             except:
                 return await message.reply("Invalid link.")
 
-            token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
             verify_link = f"https://t.me/{client.username}?start=verify_{token}"
             print(verify_link, "verify link")
             shortlink = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verify_link)
