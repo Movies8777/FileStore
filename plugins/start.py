@@ -29,8 +29,7 @@ from config import *
 from helper_func import *
 from database.database import *
 from database.db_premium import *
-
-
+print(SHORTLINK_API, SHORTLINK_URL)
 BAN_SUPPORT = f"{BAN_SUPPORT}"
 TUT_VID = f"{TUT_VID}"
 
