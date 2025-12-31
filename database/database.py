@@ -52,6 +52,41 @@ class Rohit:
         self.rqst_fsub_Channel_data = self.database['request_forcesub_channel']
         self.redirect_data = self.database['redirect_links']
 
+    # ---------------- REDIRECT METHODS ----------------
+
+    async def add_redirect(self, redirect_id: str, shortlink: str, user_id: int):
+        await self.redirect_data.update_one(
+            {'_id': redirect_id},
+            {
+                '$set': {
+                    'shortlink': shortlink,
+                    'user_id': user_id,
+                    'created_at': datetime.now(),
+                    'visited': False
+                }
+            },
+            upsert=True
+        )
+
+    async def get_redirect(self, redirect_id: str):
+        data = await self.redirect_data.find_one({'_id': redirect_id})
+        return data['shortlink'] if data else None
+
+    async def get_redirect_full(self, redirect_id: str):
+        return await self.redirect_data.find_one({'_id': redirect_id})
+
+    async def delete_redirect(self, redirect_id: str):
+        await self.redirect_data.delete_one({'_id': redirect_id})
+
+    async def mark_redirect_visited(self, redirect_id: str):
+        await self.redirect_data.update_one(
+            {'_id': redirect_id},
+            {'$set': {'visited': True, 'visited_at': datetime.now()}}
+        )
+
+    async def is_redirect_visited(self, redirect_id: str):
+        data = await self.redirect_data.find_one({'_id': redirect_id})
+        return data.get('visited', False) if data else False
 
     # USER DATA
     async def present_user(self, user_id: int):
@@ -272,40 +307,5 @@ class Rohit:
         result = await self.sex_data.aggregate(pipeline).to_list(length=1)
         return result[0]["total"] if result else 0
 
+db = Rohit(DB_URI, DB_NAME)
 
-async def add_redirect(self, redirect_id: str, shortlink: str, user_id: int):
-        """Store redirect mapping"""
-        await self.redirect_data.update_one(
-            {'_id': redirect_id},
-            {'$set': {'shortlink': shortlink, 'user_id': user_id, 'created_at': datetime.now()}},
-            upsert=True
-        )
-
-    async def get_redirect(self, redirect_id: str):
-        """Retrieve shortlink by redirect ID"""
-        data = await self.redirect_data.find_one({'_id': redirect_id})
-        return data['shortlink'] if data else None
-
-    async def get_redirect_full(self, redirect_id: str):
-        """Retrieve full redirect data (shortlink, user_id, etc)"""
-        return await self.redirect_data.find_one({'_id': redirect_id})
-
-    async def delete_redirect(self, redirect_id: str):
-        """Delete redirect after use"""
-        await self.redirect_data.delete_one({'_id': redirect_id})
-
-    async def mark_redirect_visited(self, redirect_id: str):
-        """Mark a redirect as visited"""
-        await self.redirect_data.update_one(
-            {'_id': redirect_id},
-            {'$set': {'visited': True, 'visited_at': datetime.now()}},
-            upsert=False
-        )
-
-    async def is_redirect_visited(self, redirect_id: str):
-        """Check if a redirect has been visited"""
-        data = await self.redirect_data.find_one({'_id': redirect_id})
-        return data.get('visited', False) if data else False
-
-
-db = Rohit(DB_URII, DB_NAME)
