@@ -18,6 +18,7 @@ import re
 import string 
 import string as rohit
 import time
+import secrets
 from datetime import datetime, timedelta
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode, ChatAction
