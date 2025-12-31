@@ -81,6 +81,9 @@ async def redirect_handler(request):
 
         final_url = await resolve_shortlink(shortlink)
 
+return web.HTTPFound(final_url)
+
+
         html = f"""
 <!DOCTYPE html>
 <html>
