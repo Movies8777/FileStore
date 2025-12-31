@@ -67,7 +67,8 @@ async def start_command(client: Client, message: Message):
     FILE_AUTO_DELETE = await db.get_del_timer()             # Example: 3600 seconds (1 hour)
 
 
-        if len(text) > 7:
+        text = message.text or ""
+     if len(text) > 7:
         verify_status = await db.get_verify_status(id)
 
         # Token expiry
