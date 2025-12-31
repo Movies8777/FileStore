@@ -67,57 +67,99 @@ async def start_command(client: Client, message: Message):
     FILE_AUTO_DELETE = await db.get_del_timer()             # Example: 3600 seconds (1 hour)
 
 
-    text = message.text
-    if len(text) > 7:
-        # Token verification 
+        if len(text) > 7:
         verify_status = await db.get_verify_status(id)
 
-        if SHORTLINK_URL or SHORTLINK_API:
+        # Token expiry
+        if (SHORTLINK_URL or SHORTLINK_API):
             if verify_status['is_verified'] and VERIFY_EXPIRE < (time.time() - verify_status['verified_time']):
-                await db.update_verify_status(user_id, is_verified=False)
+                await db.update_verify_status(user_id, is_verified=False, verify_token="", original_start="")
 
-            if "verify_" in message.text:
-                _, token = message.text.split("_", 1)
-                if verify_status['verify_token'] != token:
-                    return await message.reply("⚠️ 𝖨𝗇𝗏𝖺𝗅𝗂𝖽 𝗍𝗈𝗄𝖾𝗇. 𝖯𝗅𝖾𝖺𝗌𝖾 /start 𝖺𝗀𝖺𝗂𝗇.")
+        # === VERIFY TOKEN (User came back after shortlink) ===
+        if message.text.startswith("/start verify_"):
+            _, token = message.text.split("verify_", 1)
+            if verify_status['verify_token'] != token:
+                return await message.reply("Invalid token. Please /start again.")
 
-                await db.update_verify_status(id, is_verified=True, verified_time=time.time())
-                current = await db.get_verify_count(id)
-                await db.set_verify_count(id, current + 1)
-                return await message.reply(
-                    f"✅ 𝗧𝗼𝗄𝗲𝗻 𝘃𝗲𝗋𝗶𝗳𝗶𝗲𝗱! Vᴀʟɪᴅ ғᴏʀ {get_exp_time(VERIFY_EXPIRE)}"
-                )
-
-        # ---- Replace the token verification block with this ----
-        if not verify_status.get('is_verified') and not is_premium:
-            # generate tokens
-            page_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=8))
-            verify_token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=12))
-
-            # save token/status in DB
             await db.update_verify_status(
-                id,
-                page_token=page_token,
-                verify_token=verify_token,
-                is_verified=False
-            ) 
-
-            verify_page = (
-    f"https://chronic-bee-movies87777-b5ec3e1f.koyeb.app/telegram/"
-    f"{id}/{page_token}"
-)
-
-            btn = [
-                [InlineKeyboardButton("• VERIFY •", url=verify_page)],
-                [InlineKeyboardButton("• TUTORIAL •", url=TUT_VID)]
-            ]
-
-            # send verification prompt and return
-            await message.reply(
-                "Your token has expired.\n\nPlease verify to continue.",
-                reply_markup=InlineKeyboardMarkup(btn)
+                user_id,
+                is_verified=True,
+                verified_time=time.time()
             )
-            return
+            current = await db.get_verify_count(id)
+            await db.set_verify_count(id, current + 1)
+
+            original_start = verify_status.get('original_start', '')
+            if not original_start:
+                return await message.reply("No file found. Please try again.")
+
+            btn = InlineKeyboardMarkup([
+                [InlineKeyboardButton("ɢєᴛ ƒιʟᴇ", url=f"https://t.me/{client.username}?start={original_start}")]
+            ])
+            return await message.reply(
+                f"Token verified!\nValid for {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "Click below to get your file And Enjoy",
+                reply_markup=btn
+            )
+
+        # === NOT VERIFIED & NOT PREMIUM → SHOW REDIRECT LINK ===
+        if not verify_status['is_verified'] and not is_premium:
+            try:
+                original_cmd = text.split(" ", 1)[1]
+            except:
+                return await message.reply("Invalid link.")
+
+            token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
+            verify_link = f"https://t.me/{client.username}?start=verify_{token}"
+            print(verify_link, "verify link")
+            shortlink = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verify_link)
+            await db.update_verify_status(
+                user_id,
+                verify_token=token,
+                is_verified=False,
+                original_start=original_cmd,
+                link=shortlink
+            )
+
+            # Generate redirect ID and store the redirect mapping
+            redirect_id = secrets.token_urlsafe(16)
+            await db.add_redirect(redirect_id, shortlink, user_id)
+
+            # Get domain from environment - try multiple sources
+            domain = None
+            
+            # Try REPLIT_DEV_DOMAIN first (auto-set in Replit)
+            if os.environ.get("REPLIT_DEV_DOMAIN"):
+                domain = f"https://{os.environ.get('REPLIT_DEV_DOMAIN')}"
+            # Try REPLIT_SLUG as fallback
+            elif os.environ.get("REPLIT_SLUG"):
+                domain = f"https://{os.environ.get('REPLIT_SLUG')}.replit.dev"
+            # Try custom domain if provided
+            elif os.environ.get("CUSTOM_DOMAIN"):
+                domain = os.environ.get("CUSTOM_DOMAIN")
+            
+            if domain:
+                # Use redirect system (safer, doesn't expose shortlink directly)
+                redirect_url = f"{domain}/redirect?id={redirect_id}"
+                btn = [
+                    [InlineKeyboardButton("Oᴘєη ʟιηк", url=redirect_url),
+                     InlineKeyboardButton("Tυтσʀιαℓ", url=TUT_VID)],
+                    [InlineKeyboardButton("Bυу Pʀємιυм", callback_data="premium")]
+                ]
+            else:
+                # Fallback: use shortlink directly if domain not available
+                btn = [
+                    [InlineKeyboardButton("Oᴘєη ʟιηк", url=shortlink),
+                     InlineKeyboardButton("Tυтσʀιαℓ", url=TUT_VID)],
+                    [InlineKeyboardButton("Bυу Pʀємιυм", callback_data="premium")]
+                ]
+            return await message.reply(
+                f"Your token has expired. Please refresh to continue..\n\n"
+                f"<b>Token Timeout:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "<b>What is token?</b>\n"
+                f"Pass one ad to use bot for {get_exp_time(VERIFY_EXPIRE)}",
+                reply_markup=InlineKeyboardMarkup(btn)
+    )
 
         try:
             base64_string = text.split(" ", 1)[1]
