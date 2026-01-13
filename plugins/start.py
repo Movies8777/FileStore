@@ -1,38 +1,32 @@
-# Don't Remove Credit @CodeFlix_Bots, @rohit_1888
-# Ask Doubt on telegram @CodeflixSupport
-#
-# Copyright (C) 2025 by Codeflix-Bots@Github, < https://github.com/Codeflix-Bots >.
-#
-# This file is part of < https://github.com/Codeflix-Bots/FileStore > project,
-# and is released under the MIT License.
-# Please see < https://github.com/Codeflix-Bots/FileStore/blob/master/LICENSE >
-#
-# All rights reserved.
-#
-
 import asyncio
 import os
 import random
 import sys
 import re
-import string 
+import string
 import string as rohit
 import time
-import secrets
 from datetime import datetime, timedelta
+from pytz import timezone
 from pyrogram import Client, filters, __version__
 from pyrogram.enums import ParseMode, ChatAction
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
+from pyrogram.types import (
+    Message, InlineKeyboardMarkup, InlineKeyboardButton,
+    CallbackQuery, ReplyKeyboardMarkup, ChatInviteLink, ChatPrivileges
+)
 from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
-from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated, UserNotParticipant
+from pyrogram.errors import FloodWait, UserIsBlocked, InputUserDeactivated
 from bot import Bot
 from config import *
 from helper_func import *
 from database.database import *
 from database.db_premium import *
-print(SHORTLINK_API, SHORTLINK_URL)
+
 BAN_SUPPORT = f"{BAN_SUPPORT}"
 TUT_VID = f"{TUT_VID}"
+
+# Create a global dictionary to store chat data
+chat_data_cache = {}
 
 @Bot.on_message(filters.command('start') & filters.private)
 async def start_command(client: Client, message: Message):
@@ -40,19 +34,18 @@ async def start_command(client: Client, message: Message):
     id = message.from_user.id
     is_premium = await is_premium_user(id)
 
-    # Add user if not already present
+    # Add user if not exists
     if not await db.present_user(user_id):
         try:
             await db.add_user(user_id)
         except:
             pass
 
-    # ✅ Check Force Subscription
+    # Force Subscribe
     if not await is_subscribed(client, user_id):
-        #await temp.delete()
         return await not_joined(client, message)
 
-    # Check if user is banned
+    # Banned?
     banned_users = await db.get_ban_users()
     if user_id in banned_users:
         return await message.reply_text(
@@ -63,10 +56,9 @@ async def start_command(client: Client, message: Message):
             )
         )
 
-    # File auto-delete time in seconds (Set your desired time in seconds here)
     FILE_AUTO_DELETE = await db.get_del_timer()
+    text = message.text
 
-    text = message.text or ""
     if len(text) > 7:
         verify_status = await db.get_verify_status(id)
 
@@ -94,25 +86,25 @@ async def start_command(client: Client, message: Message):
                 return await message.reply("No file found. Please try again.")
 
             btn = InlineKeyboardMarkup([
-                [InlineKeyboardButton("ɢєᴛ ƒιʟᴇ", url=f"https://t.me/{client.username}?start={original_start}")]
+                [InlineKeyboardButton("GET FILE", url=f"https://t.me/{client.username}?start={original_start}")]
             ])
             return await message.reply(
                 f"Token verified!\nValid for {get_exp_time(VERIFY_EXPIRE)}\n\n"
-                "Click below to get your file And Enjoy",
+                "Click below to get your file",
                 reply_markup=btn
             )
 
-        # === NOT VERIFIED & NOT PREMIUM → SHOW REDIRECT LINK ===
+        # === NOT VERIFIED & NOT PREMIUM → SHOW SHORTLINK ===
         if not verify_status['is_verified'] and not is_premium:
             try:
                 original_cmd = text.split(" ", 1)[1]
             except:
                 return await message.reply("Invalid link.")
 
-            token = ''.join(random.choices(rohit.ascii_letters + rohit.digits, k=10))
+            token = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
             verify_link = f"https://t.me/{client.username}?start=verify_{token}"
-            print(verify_link, "verify link")
             shortlink = await get_shortlink(SHORTLINK_URL, SHORTLINK_API, verify_link)
+            masked_link = await wrap_with_redirect(shortlink)
             await db.update_verify_status(
                 user_id,
                 verify_token=token,
@@ -121,38 +113,11 @@ async def start_command(client: Client, message: Message):
                 link=shortlink
             )
 
-            # Generate redirect ID and store the redirect mapping
-            redirect_id = secrets.token_urlsafe(16)
-            await db.add_redirect(redirect_id, shortlink, user_id)
-
-            # Get domain from environment - try multiple sources
-            domain = None
-            
-            # Try REPLIT_DEV_DOMAIN first (auto-set in Replit)
-            if os.environ.get("REPLIT_DEV_DOMAIN"):
-                domain = f"https://{os.environ.get('REPLIT_DEV_DOMAIN')}"
-            # Try REPLIT_SLUG as fallback
-            elif os.environ.get("REPLIT_SLUG"):
-                domain = f"https://{os.environ.get('REPLIT_SLUG')}.replit.dev"
-            # Try custom domain if provided
-            elif os.environ.get("CUSTOM_DOMAIN"):
-                domain = os.environ.get("CUSTOM_DOMAIN")
-            
-            if domain:
-                # Use redirect system (safer, doesn't expose shortlink directly)
-                redirect_url = f"{domain}/redirect?id={redirect_id}"
-                btn = [
-                    [InlineKeyboardButton("Oᴘєη ʟιηк", url=redirect_url),
-                     InlineKeyboardButton("Tυтσʀιαℓ", url=TUT_VID)],
-                    [InlineKeyboardButton("Bυу Pʀємιυм", callback_data="premium")]
-                ]
-            else:
-                # Fallback: use shortlink directly if domain not available
-                btn = [
-                    [InlineKeyboardButton("Oᴘєη ʟιηк", url=shortlink),
-                     InlineKeyboardButton("Tυтσʀιαℓ", url=TUT_VID)],
-                    [InlineKeyboardButton("Bυу Pʀємιυм", callback_data="premium")]
-                ]
+            btn = [
+                [InlineKeyboardButton("Oᴘєη ʟιηк", url=masked_link),
+                 InlineKeyboardButton("Tυтσʀιαℓ", url=TUT_VID)],
+                [InlineKeyboardButton("Bυу Pʀємιυм", callback_data="premium")]
+            ]
             return await message.reply(
                 f"Your token has expired. Please refresh to continue..\n\n"
                 f"<b>Token Timeout:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
@@ -161,14 +126,14 @@ async def start_command(client: Client, message: Message):
                 reply_markup=InlineKeyboardMarkup(btn)
             )
 
+        # === SEND FILE (VERIFIED OR PREMIUM) ===
         try:
             base64_string = text.split(" ", 1)[1]
-        except IndexError:
+        except:
             return
 
-        string = await decode(base64_string)
-        argument = string.split("-")
-
+        decoded_string = await decode(base64_string)
+        argument = decoded_string.split("-")
         ids = []
         if len(argument) == 3:
             try:
@@ -250,7 +215,7 @@ async def start_command(client: Client, message: Message):
     else:
         reply_markup = InlineKeyboardMarkup(
             [
-                    [InlineKeyboardButton("• ᴄʜᴀɴɴᴇʟs •", url="https://t.me/Movies8777")],
+                    [InlineKeyboardButton("• ᴍᴏᴠɪᴇs •", url="https://t.me/Movies8777")],
 
     [
                     InlineKeyboardButton("• ᴀʙᴏᴜᴛ", callback_data = "about"),
