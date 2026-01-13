@@ -131,10 +131,10 @@ async def start_command(client: Client, message: Message):
                 [InlineKeyboardButton("𝖡𝗎𝗒 𝖯𝗋𝖾𝗆𝗂𝗎𝗆", callback_data="premium")]
             ]
             return await message.reply(
-                f"Your token has expired. Please refresh to continue..\n\n"
-                f"<b>Token Timeout:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
-                "<b>What is token?</b>\n"
-                f"Pass one ad to use bot for {get_exp_time(VERIFY_EXPIRE)}",
+                f"𝖸𝗈𝗎𝗋 𝗍𝗈𝗄𝖾𝗇 𝗁𝖺𝗌 𝖾𝗑𝗉𝗂𝗋𝖾𝖽. 𝖯𝗅𝖾𝖺𝗌𝖾 𝗋𝖾𝖿𝗋𝖾𝗌𝗁 𝗍𝗈 𝖼𝗈𝗇𝗍𝗂𝗇𝗎𝖾..\n\n"
+                f"<b>𝖳𝗈𝗄𝖾𝗇 𝖳𝗂𝗆𝖾𝗈𝗎𝗍:</b> {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "<b>𝖶𝗁𝖺𝗍 𝗂𝗌 𝗍𝗈𝗄𝖾𝗇?</b>\n"
+                f"𝖯𝖺𝗌𝗌 𝗈𝗇𝖾 𝖺𝖽 𝗍𝗈 𝗎𝗌𝖾 𝖻𝗈𝗍 𝖿𝗈𝗋 {get_exp_time(VERIFY_EXPIRE)}",
                 reply_markup=InlineKeyboardMarkup(btn)
             )
 
