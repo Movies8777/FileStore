@@ -83,7 +83,7 @@ async def start_command(client: Client, message: Message):
         if message.text.startswith("/start verify_"):
             _, token = message.text.split("verify_", 1)
             if verify_status['verify_token'] != token:
-                return await message.reply("Invalid token. Please /start again.")
+                return await message.reply("Your token has expired. Please refresh to continue")
 
             await db.update_verify_status(
                 user_id,
@@ -95,14 +95,14 @@ async def start_command(client: Client, message: Message):
 
             original_start = verify_status.get('original_start', '')
             if not original_start:
-                return await message.reply("No file found. Please try again.")
+                return await message.reply("𝖭𝗈 𝖿𝗂𝗅𝖾 𝖿𝗈𝗎𝗇𝖽. 𝖯𝗅𝖾𝖺𝗌𝖾 𝗍𝗋𝗒 𝖺𝗀𝖺𝗂𝗇.")
 
             btn = InlineKeyboardMarkup([
                 [InlineKeyboardButton("GET FILE", url=f"https://t.me/{client.username}?start={original_start}")]
             ])
             return await message.reply(
-                f"Token verified!\nValid for {get_exp_time(VERIFY_EXPIRE)}\n\n"
-                "Click below to get your file",
+                f"𝖳𝗈𝗄𝖾𝗇 𝗏𝖾𝗋𝗂𝖿𝗂𝖾𝖽!\n𝖵𝖺𝗅𝗂𝖽 𝖿𝗈𝗋 {get_exp_time(VERIFY_EXPIRE)}\n\n"
+                "𝖢𝗅𝗂𝖼𝗄 𝖻𝖾𝗅𝗈𝗐 𝗍𝗈 𝗀𝖾𝗍 𝗒𝗈𝗎𝗋 𝖿𝗂𝗅𝖾",
                 reply_markup=btn
             )
 
@@ -126,9 +126,9 @@ async def start_command(client: Client, message: Message):
             )
 
             btn = [
-                [InlineKeyboardButton("Oᴘєη ʟιηк", url=masked_link),
-                 InlineKeyboardButton("Tυтσʀιαℓ", url=TUT_VID)],
-                [InlineKeyboardButton("Bυу Pʀємιυм", callback_data="premium")]
+                [InlineKeyboardButton("𝖮𝗉𝖾𝗇 𝖫𝗂𝗇𝗄 ", url=masked_link),
+                 InlineKeyboardButton("𝖳𝗎𝗍𝗈𝗋𝗂𝖺𝗅", url=TUT_VID)],
+                [InlineKeyboardButton("𝖡𝗎𝗒 𝖯𝗋𝖾𝗆𝗂𝗎𝗆", callback_data="premium")]
             ]
             return await message.reply(
                 f"Your token has expired. Please refresh to continue..\n\n"
