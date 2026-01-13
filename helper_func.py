@@ -225,28 +225,17 @@ def get_exp_time(seconds):
 
 
 async def get_shortlink(url, api, link):
-    # If shortlink is not configured, bypass
-    if not url or not api:
-        return link
-
-    try:
-        shortzy = Shortzy(api_key=api, base_site=url)
-        short = await shortzy.convert(link)
-
-        # Validate response
-        if not short or not str(short).startswith("http"):
-            return link
-
-        return short
-
-    except Exception as e:
-        print("[SHORTLINK ERROR]", e)
-        return link
-
+    shortzy = Shortzy(api_key=api, base_site=url)
+    link = await shortzy.convert(link)
+    return link
 
 
 subscribed = filters.create(is_subscribed)
 admin = filters.create(check_admin)
+
+async def wrap_with_redirect(short_url):
+    encoded = await encode(short_url)
+    return f"{REDIRECT_DOMAIN}/?r={encoded}"
 
 #rohit_1888 on Tg :
 
